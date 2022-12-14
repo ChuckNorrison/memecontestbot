@@ -7,6 +7,7 @@ app = Client("my_account")
 chat_id = "mychannelname" # channel name for public or chat id for private chats like -1123412341234
 contest_day = date.today() # can be a string like "2022-12-14"
 final_message_footer = "@mychannelname"
+send_final_message = False
 
 # global vars
 participants = []
@@ -91,8 +92,9 @@ async def main():
     final_message = final_message + "\n" + final_message_footer
     print(final_message)
     
-    async with app:
-        await app.send_photo(chat_id, winner_photo, final_message)
+    if send_final_message:
+        async with app:
+            await app.send_photo(chat_id, winner_photo, final_message)
 
 def get_winner():
     highest_count = 0

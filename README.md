@@ -15,7 +15,7 @@ The first step requires you to obtain a valid Telegram API key (api_id and api_h
 3. Done. The API key consists of two parts: api_id and api_hash. Keep it secret.
 
 ## Setup python and pyrogram
-1. git clone https://github.com/ChuckNorrison/memecontestbot
+1. `git clone https://github.com/ChuckNorrison/memecontestbot`
 2. `pip3 install -U pyrogram`
 3. Edit the file memecontestbot.py and insert your desired telegram chat id or public channel name as `chat_id`
 

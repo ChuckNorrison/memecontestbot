@@ -1,3 +1,13 @@
+#!/usr/bin/env python
+
+"""
+Simple Bot to analyze telegram post reactions and create a ranking.
+Can be configured for daily or weekly rankings (get_chat_history has a limit of posts to return from chat).
+
+Usage:
+Start bot to create a nice ranking.
+"""
+
 from pyrogram import Client, enums
 from datetime import datetime
 
@@ -119,6 +129,7 @@ async def main():
             await app.send_photo(chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
 
 def get_winner():
+    """ Extracts the best post from participants and returns the winner """
     highest_count = 0
     winner = []
 
@@ -132,6 +143,7 @@ def get_winner():
 
     # remove winner from participants array
     if len(participants) >= 0:
+    if winner_id and len(participants) >= 0:
         #print("Remove participant %s" % participants[winner_id].author_signature)
         participants.pop(winner_id)
 

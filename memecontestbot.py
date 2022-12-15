@@ -4,8 +4,8 @@ from datetime import datetime
 app = Client("my_account")
 
 # TWEAK CONFIG HERE
-chat_id = "mychannelname" # channel name for public or chat id for private chats like -1123412341234
 contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any time manually as decribed
+#contest_date = "2022-12-10 23:59:59"
 contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
 final_message_footer = "🏆 @mychannelname 🏆" # simple text footer in ranking view
 send_final_message = False # Send the final message to the chat id with ranking and winner photo
@@ -29,7 +29,7 @@ async def main():
                 # check if message was in desired timeframe
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
                 message_difftime = contest_time - message_time
-
+                #print(message_difftime)
                 if ( message_difftime.days <= contest_days-1 ):
 
                     # verify views
@@ -52,24 +52,28 @@ async def main():
                         # check if participant has more than one post
                         duplicate = 0
                         for participant in participants:
-                            if participant.author_signature == message.author_signature \
-                                    or str(message.author_signature) == "None":
+                            if participant.author_signature == message.author_signature:
+                                duplicate = 1
                                 if contest_days == 1:
                                     # already exist in participants array, only one post allowed (prefer best)
                                     if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
                                         # best variant does exist, do not append this again
-                                        duplicate = 1
-                                        break
+                                        continue
                                     else:
                                         # update the better count in existent array if possible
                                         participant.reactions.reactions[0].count = message.reactions.reactions[0].count
                                 else:
                                     participant.reactions.reactions[0].count += message.reactions.reactions[0].count
-                                    break
+
+                            elif str(message.author_signature) == "None":
+                                duplicate = 1
 
                         if duplicate == 0:
                             # append to participants array
+                            #print("Add participant %s" % message.author_signature)
                             participants.append(message)
+                else:
+                    break
 
     # create winner array
     i = 1
@@ -79,6 +83,7 @@ async def main():
             if i == 1:
                 # this is our rank 1 winner
                 winner_photo = winner.photo.file_id
+            #print("Add Winner %s" % winner.author_signature)
             winners.append(winner)
         i += 1
 
@@ -119,14 +124,15 @@ def get_winner():
 
     i = 0
     for participant in participants:
-        i += 1
         if participant.reactions.reactions[0].count > highest_count:
             highest_count = participant.reactions.reactions[0].count
             winner = participant
-            winner_id = i-1
+            winner_id = i
+        i += 1
 
     # remove winner from participants array
-    if len(participants) > 1:
+    if len(participants) >= 0:
+        #print("Remove participant %s" % participants[winner_id].author_signature)
         participants.pop(winner_id)
 
     return winner

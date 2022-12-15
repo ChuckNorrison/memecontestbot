@@ -14,7 +14,7 @@ from datetime import datetime
 app = Client("my_account")
 
 # TWEAK CONFIG HERE
-chat_id = "mychannelname"
+chat_id = "mychannelname" # channel name for public channels or chat id for private chats.
 contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any time manually as decribed
 #contest_date = "2022-12-10 23:59:59"
 contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
@@ -31,7 +31,6 @@ contest_time = datetime.strptime(contest_date, "%Y-%m-%d %H:%M:%S")
 async def main():
 
     async with app:
-        # "me" refers to your own chat (Saved Messages)
         async for message in app.get_chat_history(chat_id):
 
             # check if message is a photo

@@ -34,7 +34,9 @@ async def main():
         async for message in app.get_chat_history(chat_id):
 
             # check if message is a photo
-            if str(message.media) == "MessageMediaType.PHOTO":
+            if ( str(message.media) == "MessageMediaType.PHOTO" 
+                    # filter admin posts
+                    and "Meme Contest" not in str(message.caption) ):
 
                 # check if message was in desired timeframe
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")

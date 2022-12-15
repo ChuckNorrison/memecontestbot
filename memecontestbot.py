@@ -14,10 +14,11 @@ from datetime import datetime
 app = Client("my_account")
 
 # TWEAK CONFIG HERE
+chat_id = "mychannelname"
 contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any time manually as decribed
 #contest_date = "2022-12-10 23:59:59"
 contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
-contest_days_ranking = 5 # amount of winners to honor in ranking
+contest_days_ranking = 10 # amount of winners to honor in ranking
 final_message_footer = "🏆 @mychannelname 🏆" # simple text footer in ranking view
 send_final_message = False # Send the final message to the chat id with ranking and winner photo
 

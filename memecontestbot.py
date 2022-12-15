@@ -5,9 +5,6 @@ app = Client("my_account")
 
 # TWEAK CONFIG HERE
 chat_id = "mychannelname" # channel name for public or chat id for private chats like -1123412341234
-contest_day = date.today() # can be a string like "2022-12-14"
-contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-contest_days = 1
 contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any time manually as decribed
 contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
 final_message_footer = "🏆 @mychannelname 🏆" # simple text footer in ranking view

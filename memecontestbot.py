@@ -41,9 +41,9 @@ async def main():
 
                     # verify reactions
                     reaction_counter = 0
-                    if message.reactions:
+                    try:
                         reaction_counter = message.reactions.reactions[0].count
-                    else:
+                    except:
                         continue
 
                     # the message should have reactions and views
@@ -57,9 +57,11 @@ async def main():
                                 if contest_days == 1:
                                     # already exist in participants array, only one post allowed (prefer best)
                                     if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
+                                        # best variant does exist, do not append this again
                                         duplicate = 1
                                         break
                                     else:
+                                        # update the better count in existent array if possible
                                         participant.reactions.reactions[0].count = message.reactions.reactions[0].count
                                 else:
                                     participant.reactions.reactions[0].count += message.reactions.reactions[0].count

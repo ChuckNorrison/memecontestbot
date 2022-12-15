@@ -17,13 +17,13 @@ app = Client("my_account")
 contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any time manually as decribed
 #contest_date = "2022-12-10 23:59:59"
 contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
+contest_days_ranking = 5 # amount of winners to honor in ranking
 final_message_footer = "🏆 @mychannelname 🏆" # simple text footer in ranking view
 send_final_message = False # Send the final message to the chat id with ranking and winner photo
 
 
 # global vars
 participants = []
-winners = []
 winner_photo = ""
 contest_time = datetime.strptime(contest_date, "%Y-%m-%d %H:%M:%S")
 
@@ -85,51 +85,18 @@ async def main():
                 else:
                     break
 
-    # create winner array
-    i = 1
-    while i <= 10:
-        winner = get_winner()
-        if winner:
-            if i == 1:
-                # this is our rank 1 winner
-                winner_photo = winner.photo.file_id
-            #print("Add Winner %s" % winner.author_signature)
-            winners.append(winner)
-        i += 1
-
     # create final message with ranking
-    rank = 1
-    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
-    
-    if contest_days == 1:
-        final_message = f"Rangliste 24-Stunden Top 10 ({formatted_date}):\n\n"
-    else:
-        final_message = f"Rangliste {contest_days}-Tage Top 10 ({formatted_date}):\n\n"
+    final_message = create_ranking()
 
-    last_winner = ""
-    for winner in winners:
-        if last_winner == winner.author_signature:
-            continue
-
-        final_message = final_message + "#" + str(rank) \
-                + " " + winner.author_signature \
-                + " " + str(winner.reactions.reactions[0].count) \
-                + " 🏆 \n"
-        last_winner = winner.author_signature
-
-        rank += 1
-        if rank > 10:
-            break
-    
-    final_message = final_message + "\n" + final_message_footer
-    print(final_message)
-    
     if send_final_message:
         async with app:
-            await app.send_photo(chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+            if winner_photo != "":
+                await app.send_photo(chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+            else:
+                print("Can not find winner photo for send final ranking message")
 
 def get_winner():
-    """ Extracts the best post from participants and returns the winner """
+    """Extracts the best post from participants and returns the winner"""
     highest_count = 0
     winner = []
 
@@ -142,11 +109,63 @@ def get_winner():
         i += 1
 
     # remove winner from participants array
-    if len(participants) >= 0:
     if winner_id and len(participants) >= 0:
         #print("Remove participant %s" % participants[winner_id].author_signature)
         participants.pop(winner_id)
 
     return winner
+
+def get_winners():
+    """Get all winners and return winners array"""
+    winners = []
+
+    i = 1
+    while i <= contest_days_ranking:
+        winner = get_winner()
+        if winner:
+            #print("Add Winner %s" % winner.author_signature)
+            winners.append(winner)
+        i += 1
+
+    return winners
+
+def create_ranking():
+    """Build the final ranking message"""
+    global winner_photo
+
+    # get winners
+    winners = get_winners()
+
+    rank = 1
+    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
+    
+    if contest_days == 1:
+        final_message = f"Rangliste 24-Stunden Top {contest_days_ranking} (Stand: {formatted_date}):\n\n"
+    else:
+        final_message = f"Rangliste {contest_days}-Tage Top {contest_days_ranking} (Stand: {formatted_date}):\n\n"
+
+    last_winner = ""
+    for winner in winners:
+        if last_winner == winner.author_signature:
+            continue
+
+        if rank == 1:
+            # this is our rank 1 winner
+            winner_photo = winner.photo.file_id
+
+        final_message = final_message + "#" + str(rank) \
+                + " " + winner.author_signature \
+                + " " + str(winner.reactions.reactions[0].count) \
+                + " 🏆 \n"
+        last_winner = winner.author_signature
+
+        rank += 1
+        if rank > contest_days_ranking:
+            break
+    
+    final_message = final_message + "\n" + final_message_footer
+    print(final_message)   
+
+    return final_message
 
 app.run(main())

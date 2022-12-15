@@ -99,6 +99,7 @@ def get_winner():
     """Extracts the best post from participants and returns the winner"""
     highest_count = 0
     winner = []
+    winner_id = -1
 
     i = 0
     for participant in participants:
@@ -109,8 +110,8 @@ def get_winner():
         i += 1
 
     # remove winner from participants array
-    if winner_id and len(participants) >= 0:
         #print("Remove participant %s" % participants[winner_id].author_signature)
+    if winner_id != -1 and len(participants) >= 0:
         participants.pop(winner_id)
 
     return winner

@@ -1,18 +1,21 @@
-from pyrogram import Client
-from datetime import date
+from pyrogram import Client, enums
+from datetime import datetime
 
 app = Client("my_account")
 
 # TWEAK CONFIG HERE
 chat_id = "mychannelname" # channel name for public or chat id for private chats like -1123412341234
 contest_day = date.today() # can be a string like "2022-12-14"
-final_message_footer = "@mychannelname"
-send_final_message = False
+contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+contest_days = 1
+send_final_message = False # Send the final message to the chat id with ranking and winner photo
+
 
 # global vars
 participants = []
 winners = []
 winner_photo = ""
+contest_time = datetime.strptime(contest_date, "%Y-%m-%d %H:%M:%S")
 
 async def main():
 
@@ -23,8 +26,11 @@ async def main():
             # check if message is a photo
             if str(message.media) == "MessageMediaType.PHOTO":
 
-                # check if message was in desired timeframe        
-                if str(contest_day) in str(message.date):
+                # check if message was in desired timeframe
+                message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
+                message_difftime = contest_time - message_time
+
+                if ( message_difftime.days <= contest_days-1 ):
 
                     # verify views
                     views_counter = 0
@@ -48,13 +54,19 @@ async def main():
                         for participant in participants:
                             if participant.author_signature == message.author_signature \
                                     or str(message.author_signature) == "None":
-                                # already exist in participants array, only one post allowed
-                                duplicate = 1
-                                break
+                                if contest_days == 1:
+                                    # already exist in participants array, only one post allowed (prefer best)
+                                    if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
+                                        duplicate = 1
+                                        break
+                                    else:
+                                        participant.reactions.reactions[0].count = message.reactions.reactions[0].count
+                                else:
+                                    participant.reactions.reactions[0].count += message.reactions.reactions[0].count
+                                    break
 
                         if duplicate == 0:
                             # append to participants array
-                            # print("Add participant %s" % str(message.author_signature))
                             participants.append(message)
 
     # create winner array
@@ -63,17 +75,20 @@ async def main():
         winner = get_winner()
         if winner:
             if i == 1:
-            # this is our rank 1 winner
+                # this is our rank 1 winner
                 winner_photo = winner.photo.file_id
-                #print(winner_photo)
-            #print("Add winner %s" % str(winner.author_signature))
             winners.append(winner)
         i += 1
 
-    # create final message of top 10 winners
+    # create final message with ranking
     rank = 1
-    formatted_date = contest_day.strftime("%d.%m.%Y")
-    final_message = f"Tages-Ranking Top 10 ({formatted_date}):\n\n"
+    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
+    
+    if contest_days == 1:
+        final_message = f"Rangliste 24-Stunden Top 10 ({formatted_date}):\n\n"
+    else:
+        final_message = f"Rangliste {contest_days}-Tage Top 10 ({formatted_date}):\n\n"
+
     last_winner = ""
     for winner in winners:
         if last_winner == winner.author_signature:
@@ -94,7 +109,7 @@ async def main():
     
     if send_final_message:
         async with app:
-            await app.send_photo(chat_id, winner_photo, final_message)
+            await app.send_photo(chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
 
 def get_winner():
     highest_count = 0

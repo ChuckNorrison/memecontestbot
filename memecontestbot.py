@@ -175,6 +175,9 @@ def create_ranking():
 
         # check for telegram handles in caption
         winner_display_name = winner.author_signature
+        if not winner_display_name:
+            winner_display_name = "None"
+
         if "@" in str(winner.caption):
             # extract handle from caption
             winner_caption_array = winner.caption.split()

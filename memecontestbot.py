@@ -110,8 +110,8 @@ def get_winner():
         i += 1
 
     # remove winner from participants array
-        #print("Remove participant %s" % participants[winner_id].author_signature)
     if winner_id != -1 and len(participants) >= 0:
+        #print("Remove participant %s" % participants[winner_id].author_signature)
         participants.pop(winner_id)
 
     return winner
@@ -154,8 +154,17 @@ def create_ranking():
             # this is our rank 1 winner
             winner_photo = winner.photo.file_id
 
+        # check for telegram handles in caption
+        winner_display_name = winner.author_signature
+        if "@" in str(winner.caption):
+            # extract handle from caption
+            winner_caption_array = winner.caption.split()
+            for caption_word in winner_caption_array:
+                if "@" in caption_word:
+                    winner_display_name = caption_word
+
         final_message = final_message + "#" + str(rank) \
-                + " " + winner.author_signature \
+                + " " + winner_display_name \
                 + " " + str(winner.reactions.reactions[0].count) \
                 + " 🏆 \n"
         last_winner = winner.author_signature

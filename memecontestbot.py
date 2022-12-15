@@ -19,9 +19,9 @@ contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any 
 #contest_date = "2022-12-10 23:59:59"
 contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
 contest_days_ranking = 10 # amount of winners to honor in ranking
-final_message_footer = "🏆 @mychannelname 🏆" # simple text footer in ranking view
-send_final_message = False # Send the final message to the chat id with ranking and winner photo
-
+final_message_footer = "🏆 [Meme Contest](https://t.me/mychannelname) 🏆" # simple text footer in ranking view
+send_final_message = False # Send the final message to a given chat id with ranking and winner photo or set to False
+post_link = True # link the ranked post in final message behind result count
 
 # global vars
 participants = []
@@ -41,7 +41,7 @@ async def main():
                 # check if message was in desired timeframe
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
                 message_difftime = contest_time - message_time
-                #print(message_difftime)
+                #print(message_difftime.days)
                 if ( message_difftime.days <= contest_days-1 ):
 
                     # verify views
@@ -63,26 +63,42 @@ async def main():
 
                         # check if participant has more than one post
                         duplicate = 0
+                        highest_count = 0
                         for participant in participants:
                             if participant.author_signature == message.author_signature:
                                 duplicate = 1
                                 if contest_days == 1:
                                     # already exist in participants array, only one post allowed (prefer best)
                                     if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
-                                        # best variant does exist, do not append this again
+                                        # best variant already exist, do not append it again
                                         continue
                                     else:
-                                        # update the better count in existent array if possible
-                                        participant.reactions.reactions[0].count = message.reactions.reactions[0].count
+                                        # update the better post in existent array
+                                        participant = message
                                 else:
+                                    post_count = participant.reactions.reactions[0].count
+
+                                    # remember the best meme of current participant
+                                    if post_count > highest_count:
+                                        highest_count = post_count
+
+                                    if ( highest_count < message.reactions.reactions[0].count ):
+                                        # update caption and image
+                                        participant.photo.file_id = message.photo.file_id
+                                        participant.photo.file_unique_id = message.photo.file_unique_id
+                                        participant.caption = message.caption
+                                        participant.id = message.id
+                                    
+                                    # update reaction counter
                                     participant.reactions.reactions[0].count += message.reactions.reactions[0].count
 
                             elif str(message.author_signature) == "None":
                                 duplicate = 1
 
-                        if duplicate == 0:
+                        if duplicate == 0 and message_difftime.days != -1:
                             # append to participants array
-                            #print("Add participant %s" % message.author_signature)
+                            # print("Add participant %s (%s) %s" 
+                            #         % (message.author_signature, str(message_difftime), message.reactions.reactions[0].count))
                             participants.append(message)
                 else:
                     break
@@ -93,9 +109,12 @@ async def main():
     if send_final_message:
         async with app:
             if winner_photo != "":
-                await app.send_photo(chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                await app.send_photo(send_final_message, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
             else:
-                print("Can not find winner photo for send final ranking message")
+                if contest_days == 1:
+                    print("Something went wrong! Can not find winner photo for final ranking message")
+                else:
+                    print("Can not find best meme photo, please fix me")
 
 def get_winner():
     """Extracts the best post from participants and returns the winner"""
@@ -113,7 +132,7 @@ def get_winner():
 
     # remove winner from participants array
     if winner_id != -1 and len(participants) >= 0:
-        #print("Remove participant %s" % participants[winner_id].author_signature)
+        #print("Remove participant %s %s" % (participants[winner_id].author_signature, str(participants[winner_id].reactions.reactions[0].count)))
         participants.pop(winner_id)
 
     return winner
@@ -124,10 +143,10 @@ def get_winners():
 
     i = 1
     while i <= contest_days_ranking:
-        winner = get_winner()
-        if winner:
-            #print("Add Winner %s" % winner.author_signature)
-            winners.append(winner)
+        current_winner = get_winner()
+        if current_winner:
+            #print("Add Winner %s %s" % (current_winner.author_signature, str(current_winner.reactions.reactions[0].count)))
+            winners.append(current_winner)
         i += 1
 
     return winners
@@ -149,11 +168,9 @@ def create_ranking():
 
     last_winner = ""
     for winner in winners:
-        if last_winner == winner.author_signature:
-            continue
 
+        # set rank 1 winner photo
         if rank == 1:
-            # this is our rank 1 winner
             winner_photo = winner.photo.file_id
 
         # check for telegram handles in caption
@@ -165,11 +182,18 @@ def create_ranking():
                 if "@" in caption_word:
                     winner_display_name = caption_word
 
+        # add post link
+        winner_count = winner.reactions.reactions[0].count
+        if post_link:
+            winner_message_id = str(winner.id)
+            winner_chat_id = str(winner.chat.id).replace("-100","")
+            winner_post_url = "https://t.me/c/" + winner_chat_id + "/" + winner_message_id
+            winner_count = f"[{winner_count}]({winner_post_url})"
+
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
-                + " " + str(winner.reactions.reactions[0].count) \
+                + " " + winner_count \
                 + " 🏆 \n"
-        last_winner = winner.author_signature
 
         rank += 1
         if rank > contest_days_ranking:

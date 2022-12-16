@@ -14,7 +14,14 @@ The first step requires you to obtain a valid Telegram API key (api_id and api_h
 2. Fill out the form with your details and register a new Telegram application.
 3. Done. The API key consists of two parts: api_id and api_hash. Keep it secret.
 
-## Setup python and pyrogram
+## Setup python
+This bot was developed and tested with python 3.10 on Ubuntu 18-22
+1. `sudo add-apt-repository ppa:deadsnakes/ppa`
+2. `sudo apt-get update`
+3. `sudo apt-get install python3.10`
+4. `python3.10 -m pip install --upgrade pip`
+
+## Setup pyrogram Telegram Userbot
 1. `git clone https://github.com/ChuckNorrison/memecontestbot`
 2. `pip3 install -U pyrogram`
 3. Edit the file memecontestbot.py and insert your desired telegram chat id or public channel name as `chat_id`

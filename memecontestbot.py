@@ -10,6 +10,7 @@ Start bot to create a nice ranking.
 
 from pyrogram import Client, enums
 from datetime import datetime
+import csv
 
 app = Client("my_account")
 
@@ -47,6 +48,12 @@ send_final_message = chat_id
 # link the ranked post 
 # in final message on the result counter
 post_link = True 
+
+# Create a CSV file with all participants found
+create_csv = True
+
+# Send CSV file to a given chat id
+send_csv = False
 
 # END TWEAK CONFIG
 #########################
@@ -133,6 +140,17 @@ async def main():
                             # print("Add participant %s (%s) %s" 
                             #         % (message.author_signature, str(message_difftime), message.reactions.reactions[0].count))
                             participants.append(message)
+
+                        if create_csv:
+                            csv_rows = []
+
+                            for participant in participants:
+                                participant_postlink = build_postlink(participant)
+                                csv_rows.append([participant.author_signature, participant_postlink, 
+                                    participant.date, participant.reactions.reactions[0].count, participant.views])
+
+                            write_csv(csv_rows)
+
                 else:
                     break
 
@@ -148,6 +166,20 @@ async def main():
                     print("Something went wrong! Can not find winner photo for final ranking message")
                 else:
                     print("Can not find best meme photo, please fix me")
+
+    if create_csv and send_csv:
+        async with app:
+            await app.send_document(send_csv, "contest.csv")
+
+def write_csv(csv_rows):
+    """Write data to CSV file"""
+    csv_filename = "contest.csv"
+    csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
+    
+    with open(csv_filename, 'w') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(csv_fields)
+        csvwriter.writerows(csv_rows)
 
 def get_winner():
     """Extracts the best post from participants and returns the winner"""
@@ -183,6 +215,13 @@ def get_winners():
         i += 1
 
     return winners
+
+def build_postlink(message):
+    """Builds link to given message"""
+    message_id = str(message.id)
+    message_chat_id = str(message.chat.id).replace("-100","")
+    postlink = "https://t.me/c/" + message_chat_id + "/" + message_id
+    return postlink
 
 def create_ranking():
     """Build the final ranking message"""
@@ -221,10 +260,8 @@ def create_ranking():
         # add post link
         winner_count = str(winner.reactions.reactions[0].count)
         if post_link:
-            winner_message_id = str(winner.id)
-            winner_chat_id = str(winner.chat.id).replace("-100","")
-            winner_post_url = "https://t.me/c/" + winner_chat_id + "/" + winner_message_id
-            winner_count = f"[{winner_count}]({winner_post_url})"
+            winner_postlink = build_postlink(winner)
+            winner_count = f"[{winner_count}]({winner_postlink})"
 
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \

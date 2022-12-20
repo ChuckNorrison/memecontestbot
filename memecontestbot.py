@@ -13,15 +13,43 @@ from datetime import datetime
 
 app = Client("my_account")
 
-# TWEAK CONFIG HERE
-chat_id = "mychannelname" # channel name for public channels or chat id for private chats.
-contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") # you can enter any time manually as decribed
-#contest_date = "2022-12-10 23:59:59"
-contest_days = 1 # 1 = 24h contest without duplicates, 2+ days post with same author gets added 
-contest_days_ranking = 10 # amount of winners to honor in ranking
-final_message_footer = "🏆 [Meme Contest](https://t.me/mychannelname) 🏆" # simple text footer in ranking view
-send_final_message = False # Send the final message to a given chat id with ranking and winner photo or set to False
-post_link = True # link the ranked post in final message behind result count
+#########################
+# START TWEAK CONFIG HERE
+
+# channel name for public channels 
+# or chat id for private chats to analyze
+chat_id = "mychannelname" 
+
+# only posts prior this date and time will get analyzed
+contest_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S") 
+#contest_date = "2022-12-19 23:59:59" # example with fixed date and time
+
+# only posts newer than x days will be ranked. 
+# 1 = 24h contest without duplicates, 
+# 2+ days post with same author gets added
+contest_days = 1  
+
+# amount of winners to honor in ranking message
+contest_max_ranks = 10 
+
+# posts we want to exclude from ranking. 
+# Add your patterns to this array.
+exclude_pattern = ["Meme Contest"] 
+
+# simple text footer in ranking view, 
+# should be used to identify exclude posts
+final_message_footer = f"🏆 [{exclude_pattern[0]}](https://t.me/mychannelname) 🏆"
+
+# Send the final message to a given chat id 
+# with ranking and winner photo or set to False
+send_final_message = chat_id
+
+# link the ranked post 
+# in final message on the result counter
+post_link = True 
+
+# END TWEAK CONFIG
+#########################
 
 # global vars
 participants = []
@@ -33,10 +61,14 @@ async def main():
     async with app:
         async for message in app.get_chat_history(chat_id):
 
+            # check excludes
+            for exclude in exclude_pattern:
+                if exclude in str(message.caption):
+                    # skip this post message
+                    continue
+
             # check if message is a photo
-            if ( str(message.media) == "MessageMediaType.PHOTO" 
-                    # filter admin posts
-                    and "Meme Contest" not in str(message.caption) ):
+            if str(message.media) == "MessageMediaType.PHOTO":
 
                 # check if message was in desired timeframe
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
@@ -88,6 +120,7 @@ async def main():
                                         participant.photo.file_unique_id = message.photo.file_unique_id
                                         participant.caption = message.caption
                                         participant.id = message.id
+                                        participant.views = message.views
                                     
                                     # update reaction counter
                                     participant.reactions.reactions[0].count += message.reactions.reactions[0].count
@@ -118,14 +151,14 @@ async def main():
 
 def get_winner():
     """Extracts the best post from participants and returns the winner"""
-    highest_count = 0
+    best_count = 0
     winner = []
     winner_id = -1
 
     i = 0
     for participant in participants:
-        if participant.reactions.reactions[0].count > highest_count:
-            highest_count = participant.reactions.reactions[0].count
+        if participant.reactions.reactions[0].count > best_count:
+            best_count = participant.reactions.reactions[0].count
             winner = participant
             winner_id = i
         i += 1
@@ -142,7 +175,7 @@ def get_winners():
     winners = []
 
     i = 1
-    while i <= contest_days_ranking:
+    while i <= contest_max_ranks:
         current_winner = get_winner()
         if current_winner:
             #print("Add Winner %s %s" % (current_winner.author_signature, str(current_winner.reactions.reactions[0].count)))
@@ -162,9 +195,9 @@ def create_ranking():
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
     
     if contest_days == 1:
-        final_message = f"Rangliste 24-Stunden Top {contest_days_ranking} (Stand: {formatted_date}):\n\n"
+        final_message = f"Rangliste 24-Stunden Top {contest_max_ranks} (Stand: {formatted_date}):\n\n"
     else:
-        final_message = f"Rangliste {contest_days}-Tage Top {contest_days_ranking} (Stand: {formatted_date}):\n\n"
+        final_message = f"Rangliste {contest_days}-Tage Top {contest_max_ranks} (Stand: {formatted_date}):\n\n"
 
     last_winner = ""
     for winner in winners:
@@ -186,7 +219,7 @@ def create_ranking():
                     winner_display_name = caption_word
 
         # add post link
-        winner_count = winner.reactions.reactions[0].count
+        winner_count = str(winner.reactions.reactions[0].count)
         if post_link:
             winner_message_id = str(winner.id)
             winner_chat_id = str(winner.chat.id).replace("-100","")
@@ -199,7 +232,7 @@ def create_ranking():
                 + " 🏆 \n"
 
         rank += 1
-        if rank > contest_days_ranking:
+        if rank > contest_max_ranks:
             break
     
     final_message = final_message + "\n" + final_message_footer

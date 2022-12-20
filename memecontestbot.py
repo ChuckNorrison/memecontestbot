@@ -253,7 +253,7 @@ def create_ranking():
         last_count = winner_count
 
         # set rank 1 winner photo
-        if rank == 1:
+        if rank == 1 and winner_photo == "":
             winner_photo = winner.photo.file_id
 
         # check for telegram handles in caption

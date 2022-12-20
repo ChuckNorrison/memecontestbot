@@ -196,7 +196,7 @@ def get_winner():
 
     i = 0
     for participant in participants:
-        if participant.reactions.reactions[0].count > best_count:
+        if participant.reactions.reactions[0].count >= best_count:
             best_count = participant.reactions.reactions[0].count
             winner = participant
             winner_id = i
@@ -237,10 +237,20 @@ def create_ranking():
     # get winners
     winners = get_winners()
 
-    rank = 1
-
+    # init vars
+    rank = 0
+    last_count = 0
     final_message = ""
+
+    i = 1
     for winner in winners:
+
+        winner_count = winner.reactions.reactions[0].count
+
+        # update rank, same rank with same count
+        if last_count != winner_count:
+            rank += 1
+        last_count = winner_count
 
         # set rank 1 winner photo
         if rank == 1:
@@ -259,7 +269,6 @@ def create_ranking():
                     winner_display_name = caption_word
 
         # add post link
-        winner_count = str(winner.reactions.reactions[0].count)
         if post_link:
             winner_postlink = build_postlink(winner)
             winner_count = f"[{winner_count}]({winner_postlink})"
@@ -269,8 +278,8 @@ def create_ranking():
                 + " " + winner_count \
                 + " 🏆 \n"
 
-        rank += 1
-        if rank > contest_max_ranks:
+        i += 1
+        if i > contest_max_ranks:
             break
     
     final_message = header_message + ":\n\n" + final_message + "\n" + final_message_footer

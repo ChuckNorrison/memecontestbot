@@ -63,6 +63,13 @@ participants = []
 winner_photo = ""
 contest_time = datetime.strptime(contest_date, "%Y-%m-%d %H:%M:%S")
 
+# Set header message
+formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
+if contest_days == 1:
+    header_message = f"Rangliste 24-Stunden Top {contest_max_ranks} (Stand: {formatted_date})"
+else:
+    header_message = f"Rangliste {contest_days}-Tage Top {contest_max_ranks} (Stand: {formatted_date})"
+
 async def main():
 
     async with app:
@@ -169,7 +176,7 @@ async def main():
 
     if create_csv and send_csv:
         async with app:
-            await app.send_document(send_csv, "contest.csv")
+            await app.send_document(send_csv, "contest.csv", caption=header_message)
 
 def write_csv(csv_rows):
     """Write data to CSV file"""
@@ -231,14 +238,8 @@ def create_ranking():
     winners = get_winners()
 
     rank = 1
-    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
-    
-    if contest_days == 1:
-        final_message = f"Rangliste 24-Stunden Top {contest_max_ranks} (Stand: {formatted_date}):\n\n"
-    else:
-        final_message = f"Rangliste {contest_days}-Tage Top {contest_max_ranks} (Stand: {formatted_date}):\n\n"
 
-    last_winner = ""
+    final_message = ""
     for winner in winners:
 
         # set rank 1 winner photo
@@ -246,7 +247,7 @@ def create_ranking():
             winner_photo = winner.photo.file_id
 
         # check for telegram handles in caption
-        winner_display_name = winner.author_signature
+        winner_display_name = str(winner.author_signature)
         if not winner_display_name:
             winner_display_name = "None"
 
@@ -272,7 +273,7 @@ def create_ranking():
         if rank > contest_max_ranks:
             break
     
-    final_message = final_message + "\n" + final_message_footer
+    final_message = header_message + ":\n\n" + final_message + "\n" + final_message_footer
     print(final_message)   
 
     return final_message

@@ -266,7 +266,8 @@ def create_ranking():
             winner_caption_array = winner.caption.split()
             for caption_word in winner_caption_array:
                 if "@" in caption_word:
-                    winner_display_name = caption_word
+                    # make sure nobody can inject commands here
+                    winner_display_name = re.sub(r"@[^a-zA-Z0-9 ]", "", caption_word)
 
         # add post link
         if post_link:

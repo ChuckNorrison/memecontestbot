@@ -1,11 +1,14 @@
 # memecontestbot
 A telegram bot for a telegram channel ranking based on reactions. 
 
-The bot will retrieve the Top 10 channel posts with the most given reactions.
-
-A message will be build and send to the chat.
-
 The Bot can be set as cron to post a ranking automatically.
+
+## Features
+- On execute, it retrieves message posts of a given telegram chat (`chat_id`) and period (`contest_days`) and analyze reactions to create a ranking.
+- Decide whether to post the final ranking message in a given chat or not (config: `send_final_message`)
+- Configure how much winners will get into the ranking (config: `contest_max_ranks`)
+- Exclude message posts from analyzing (config: `exclude_pattern`)
+- Enable CSV file creation, to log all message posts found with amount of reactions and views count (`create_csv`)
 
 ## Setup Telegram App
 The first step requires you to obtain a valid Telegram API key (api_id and api_hash pair):
@@ -14,17 +17,19 @@ The first step requires you to obtain a valid Telegram API key (api_id and api_h
 2. Fill out the form with your details and register a new Telegram application.
 3. Done. The API key consists of two parts: api_id and api_hash. Keep it secret.
 
-## Setup python
-This bot was developed and tested with python 3.10 on Ubuntu 18-22
-1. `sudo add-apt-repository ppa:deadsnakes/ppa`
-2. `sudo apt-get update`
-3. `sudo apt-get install python3.10`
-4. `python3.10 -m pip install --upgrade pip`
+## Install requirements
+The Bot was developed and tested with Python 3.10 on Debian based distro.
 
-## Setup pyrogram Telegram Userbot
+### Clone this repository
 1. `git clone https://github.com/ChuckNorrison/memecontestbot`
-2. `pip3 install -U pyrogram`
+2. `cd memecontestbot`
 3. Edit the file memecontestbot.py and insert your desired telegram chat id or public channel name as `chat_id`
+
+### Install Python 3.x
+1. `sudo apt install python3 python3-pip`
+2. `pip3 install -r requirements.txt`
+
+If you already run some python projects, keep in mind to use a [venv](https://docs.python.org/3/library/venv.html) or alternative ways to install python (check deadsnakes ppa).
 
 ## Usage
 Start the bot with `python3 memecontestbot.py`. On first start it will ask for your api_id and api_hash and your corresponding phone number to act as userbot. The bot will use your telegram account and so it will be visible with your telegram user.

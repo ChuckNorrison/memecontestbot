@@ -44,7 +44,7 @@ final_message_footer = f"🏆 [{exclude_pattern[0]}](https://t.me/mychannelname)
 
 # Send the final message to a given chat id 
 # with ranking and winner photo or set to False
-send_final_message = chat_id
+final_message_chat_id = False 
 
 # link the ranked post 
 # in final message on the result counter
@@ -54,7 +54,7 @@ post_link = True
 create_csv = True
 
 # Send CSV file to a given chat id
-send_csv = False
+csv_chat_id = final_message_chat_id
 
 # END TWEAK CONFIG
 #########################
@@ -165,19 +165,19 @@ async def main():
     # create final message with ranking
     final_message = create_ranking()
 
-    if send_final_message:
+    if final_message_chat_id:
         async with app:
             if winner_photo != "":
-                await app.send_photo(send_final_message, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                await app.send_photo(final_message_chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
             else:
                 if contest_days == 1:
                     print("Something went wrong! Can not find winner photo for final ranking message")
                 else:
                     print("Can not find best meme photo, please fix me")
 
-    if create_csv and send_csv:
+    if create_csv and csv_chat_id:
         async with app:
-            await app.send_document(send_csv, "contest.csv", caption=header_message)
+            await app.send_document(csv_chat_id, "contest.csv", caption=header_message)
 
 def write_csv(csv_rows):
     """Write data to CSV file"""

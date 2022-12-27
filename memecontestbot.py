@@ -43,6 +43,7 @@ if path.exists(configfile):
         CSV_CHAT_ID
         POST_WINNER_PHOTO
         SIGN_MESSAGES
+        RANK_MEMES
     except:
         print(f"Can not read from config file '{configfile}', please checkout config.py")
         quit()
@@ -56,11 +57,16 @@ winner_photo = ""
 contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
 # Set header message
+if RANK_MEMES:
+    header_contest_type = "Memes"
+else:
+    header_contest_type = "Contest Lords"
+
 formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 if CONTEST_DAYS == 1:
-    header_message = f"Rangliste 24-Stunden Top {CONTEST_MAX_RANKS} Memes (Stand: {formatted_date})"
+    header_message = f"Rangliste 24-Stunden Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
 else:
-    header_message = f"Rangliste {CONTEST_DAYS}-Tage Top {CONTEST_MAX_RANKS} Contest Lords (Stand: {formatted_date})"
+    header_message = f"Rangliste {CONTEST_DAYS}-Tage Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
 
 async def main():
 
@@ -120,14 +126,19 @@ async def main():
 
                             if participant.author_signature == message.author_signature:
                                 duplicate = 1
-                                if CONTEST_DAYS == 1:
+                                if RANK_MEMES:
                                     # already exist in participants array, only one post allowed (prefer best)
                                     if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
                                         # best variant already exist, do not append it again
                                         continue
                                     else:
-                                        # update the better post in existent array
-                                        participant = message
+                                        # update existent meme data
+                                        participant.photo.file_id = message.photo.file_id
+                                        participant.photo.file_unique_id = message.photo.file_unique_id
+                                        participant.caption = message.caption
+                                        participant.id = message.id
+                                        participant.views = message.views
+                                        participant.reactions.reactions[0].count = message.reactions.reactions[0].count                          
                                 else:
                                     post_count = participant.reactions.reactions[0].count
 
@@ -136,7 +147,7 @@ async def main():
                                         highest_count = post_count
 
                                     if ( highest_count < message.reactions.reactions[0].count ):
-                                        # update caption and image
+                                        # update existent meme data
                                         participant.photo.file_id = message.photo.file_id
                                         participant.photo.file_unique_id = message.photo.file_unique_id
                                         participant.caption = message.caption

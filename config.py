@@ -49,5 +49,9 @@ POST_WINNER_PHOTO = True
 # True or False to find author from message caption instead
 SIGN_MESSAGES = True
 
+# Ranking based on memes not authors
+# True or False to rank the authors instead (adds reaction counts)
+RANK_MEMES = True
+
 # END TWEAK CONFIG
 #########################

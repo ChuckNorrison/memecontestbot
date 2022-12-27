@@ -56,6 +56,10 @@ create_csv = True
 # Send CSV file to a given chat id
 csv_chat_id = final_message_chat_id
 
+# Add winner photo in final message
+# True to add or False to disable the winner photo for final message
+post_winner_photo = False
+
 # END TWEAK CONFIG
 #########################
 
@@ -172,8 +176,10 @@ async def main():
 
     if final_message_chat_id:
         async with app:
-            if winner_photo != "":
+            if winner_photo != "" and post_winner_photo:
                 await app.send_photo(final_message_chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+            elif winner_photo != "" and not post_winner_photo:
+                await app.send_message(final_message_chat_id, final_message, parse_mode=enums.ParseMode.MARKDOWN)
             else:
                 if contest_days == 1:
                     print("Something went wrong! Can not find winner photo for final ranking message")

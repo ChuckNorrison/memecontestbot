@@ -267,10 +267,10 @@ def create_ranking():
             winner_display_name = "None"
 
         if "@" in str(winner.caption):
-            # extract handle from caption
+            # extract telegram handle from caption
             winner_caption_array = winner.caption.split()
             for caption_word in winner_caption_array:
-                if "@" in caption_word:
+                if caption_word.startswith("@"):
                     # make sure nobody can inject commands here
                     winner_display_name = re.sub(r"@[^a-zA-Z0-9 ]", "", caption_word)
 
@@ -281,7 +281,7 @@ def create_ranking():
 
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
-                + " " + winner_count \
+                + " " + str(winner_count) \
                 + " 🏆 \n"
 
         i += 1

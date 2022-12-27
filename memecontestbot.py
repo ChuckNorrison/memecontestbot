@@ -58,9 +58,9 @@ contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 # Set header message
 formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 if CONTEST_DAYS == 1:
-    header_message = f"Rangliste 24-Stunden Top {CONTEST_MAX_RANKS} (Stand: {formatted_date})"
+    header_message = f"Rangliste 24-Stunden Top {CONTEST_MAX_RANKS} Memes (Stand: {formatted_date})"
 else:
-    header_message = f"Rangliste {CONTEST_DAYS}-Tage Top {CONTEST_MAX_RANKS} (Stand: {formatted_date})"
+    header_message = f"Rangliste {CONTEST_DAYS}-Tage Top {CONTEST_MAX_RANKS} Contest Lords (Stand: {formatted_date})"
 
 async def main():
 

@@ -36,7 +36,7 @@ contest_max_ranks = 10
 
 # posts we want to exclude from ranking. 
 # Add your patterns to this array.
-exclude_pattern = ["Meme Contest"] 
+exclude_pattern = ["Meme Contest", "Tagessieger", "Rangliste"] 
 
 # simple text footer in ranking view, 
 # should be used to identify exclude posts
@@ -75,15 +75,15 @@ async def main():
 
     async with app:
         async for message in app.get_chat_history(chat_id):
-
+            skip = 0
             # check excludes
             for exclude in exclude_pattern:
                 if exclude in str(message.caption):
-                    # skip this post message
-                    continue
+                    # skip this message
+                    skip = 1
 
             # check if message is a photo
-            if str(message.media) == "MessageMediaType.PHOTO":
+            if str(message.media) == "MessageMediaType.PHOTO" and not skip:
 
                 # check if message was in desired timeframe
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
@@ -113,6 +113,7 @@ async def main():
                         duplicate = 0
                         highest_count = 0
                         for participant in participants:
+
                             if participant.author_signature == message.author_signature:
                                 duplicate = 1
                                 if contest_days == 1:
@@ -158,8 +159,8 @@ async def main():
 
                             write_csv(csv_rows)
 
-                elif (message_difftime.days < 0):
-                    # message newer than expected, keep searching messages
+                elif (message_difftime.days < 0 or skip):
+                    # message newer than expected or excluded, keep searching messages
                     continue
 
                 else:

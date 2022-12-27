@@ -31,17 +31,18 @@ else:
 if path.exists(configfile): 
     exec(compile(open(configfile).read(), configfile, 'exec'))
     try:
-        chat_id
-        contest_date
-        contest_days
-        contest_max_ranks
-        exclude_pattern
-        final_message_footer
-        final_message_chat_id
-        post_link
-        create_csv
-        csv_chat_id
-        post_winner_photo
+        CHAT_ID
+        CONTEST_DATE
+        CONTEST_DAYS
+        CONTEST_MAX_RANKS
+        EXCLUDE_PATTERN
+        FINAL_MESSAGE_FOOTER
+        FINAL_MESSAGE_CHAT_ID
+        POST_LINK
+        CREATE_CSV
+        CSV_CHAT_ID
+        POST_WINNER_PHOTO
+        SIGN_MESSAGES
     except:
         print(f"Can not read from config file '{configfile}', please checkout config.py")
         quit()
@@ -52,22 +53,22 @@ else:
 # global vars
 participants = []
 winner_photo = ""
-contest_time = datetime.strptime(contest_date, "%Y-%m-%d %H:%M:%S")
+contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
 # Set header message
 formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
-if contest_days == 1:
-    header_message = f"Rangliste 24-Stunden Top {contest_max_ranks} (Stand: {formatted_date})"
+if CONTEST_DAYS == 1:
+    header_message = f"Rangliste 24-Stunden Top {CONTEST_MAX_RANKS} (Stand: {formatted_date})"
 else:
-    header_message = f"Rangliste {contest_days}-Tage Top {contest_max_ranks} (Stand: {formatted_date})"
+    header_message = f"Rangliste {CONTEST_DAYS}-Tage Top {CONTEST_MAX_RANKS} (Stand: {formatted_date})"
 
 async def main():
 
     async with app:
-        async for message in app.get_chat_history(chat_id):
+        async for message in app.get_chat_history(CHAT_ID):
             skip = 0
             # check excludes
-            for exclude in exclude_pattern:
+            for exclude in EXCLUDE_PATTERN:
                 if exclude in str(message.caption):
                     # skip this message
                     skip = 1
@@ -92,7 +93,7 @@ async def main():
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
                 message_difftime = contest_time - message_time
 
-                if ( (message_difftime.days <= contest_days-1) 
+                if ( (message_difftime.days <= CONTEST_DAYS-1) 
                         and not (message_difftime.days < 0) ):
 
                     # verify views
@@ -119,7 +120,7 @@ async def main():
 
                             if participant.author_signature == message.author_signature:
                                 duplicate = 1
-                                if contest_days == 1:
+                                if CONTEST_DAYS == 1:
                                     # already exist in participants array, only one post allowed (prefer best)
                                     if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
                                         # best variant already exist, do not append it again
@@ -152,7 +153,7 @@ async def main():
                             # append to participants array
                             participants.append(message)
 
-                        if create_csv:
+                        if CREATE_CSV:
                             csv_rows = []
 
                             for participant in participants:
@@ -173,21 +174,21 @@ async def main():
     # create final message with ranking
     final_message = create_ranking()
 
-    if final_message_chat_id:
+    if FINAL_MESSAGE_CHAT_ID:
         async with app:
-            if winner_photo != "" and post_winner_photo:
-                await app.send_photo(final_message_chat_id, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
-            elif winner_photo != "" and not post_winner_photo:
-                await app.send_message(final_message_chat_id, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+            if winner_photo != "" and POST_WINNER_PHOTO:
+                await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+            elif winner_photo != "" and not POST_WINNER_PHOTO:
+                await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
             else:
-                if contest_days == 1:
+                if CONTEST_DAYS == 1:
                     print("Something went wrong! Can not find winner photo for final ranking message")
                 else:
                     print("Can not find best meme photo, please fix me")
 
-    if create_csv and csv_chat_id:
+    if CREATE_CSV and CSV_CHAT_ID:
         async with app:
-            await app.send_document(csv_chat_id, "contest.csv", caption=header_message)
+            await app.send_document(CSV_CHAT_ID, "contest.csv", caption=header_message)
 
 def write_csv(csv_rows):
     """Write data to CSV file"""
@@ -225,7 +226,7 @@ def get_winners():
     winners = []
 
     i = 1
-    while i <= contest_max_ranks:
+    while i <= CONTEST_MAX_RANKS:
         current_winner = get_winner()
         if current_winner:
             #print("Add Winner %s %s" % (current_winner.author_signature, str(current_winner.reactions.reactions[0].count)))
@@ -281,7 +282,7 @@ def create_ranking():
                     winner_display_name = re.sub(r"@[^a-zA-Z0-9 ]", "", caption_word)
 
         # add post link
-        if post_link:
+        if POST_LINK:
             winner_postlink = build_postlink(winner)
             winner_count = f"[{winner_count}]({winner_postlink})"
 
@@ -291,10 +292,10 @@ def create_ranking():
                 + " 🏆 \n"
 
         i += 1
-        if i > contest_max_ranks:
+        if i > CONTEST_MAX_RANKS:
             break
     
-    final_message = header_message + ":\n\n" + final_message + "\n" + final_message_footer
+    final_message = header_message + ":\n\n" + final_message + "\n" + FINAL_MESSAGE_FOOTER
     print(final_message)   
 
     return final_message

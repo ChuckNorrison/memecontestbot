@@ -72,6 +72,19 @@ async def main():
                     # skip this message
                     skip = 1
 
+            if not SIGN_MESSAGES:
+                # force to set author from caption
+                if "@" in str(message.caption):
+                    # extract telegram handle from caption
+                    message.author_signature = ""
+                    message_caption_array = message.caption.split()
+                    for caption_word in message_caption_array:
+                        if caption_word.startswith("@"):
+                            # make sure nobody can inject commands here
+                            message.author_signature = re.sub(r"[^a-zA-Z0-9 ]", "", caption_word)
+                    if message.author_signature == "":
+                        skip = 1
+
             # check if message is a photo
             if str(message.media) == "MessageMediaType.PHOTO" and not skip:
 

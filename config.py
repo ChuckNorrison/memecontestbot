@@ -45,5 +45,9 @@ csv_chat_id = final_message_chat_id
 # True to add or False to disable the winner photo for final message
 post_winner_photo = False
 
+# Read author_signature from signed message
+# True or False to find author from message caption instead
+SIGN_MESSAGES = True
+
 # END TWEAK CONFIG
 #########################

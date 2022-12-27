@@ -88,8 +88,9 @@ async def main():
                 # check if message was in desired timeframe
                 message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
                 message_difftime = contest_time - message_time
-                #print(message_difftime.days)
-                if ( message_difftime.days <= contest_days-1 ):
+
+                if ( (message_difftime.days <= contest_days-1) 
+                        and not (message_difftime.days < 0) ):
 
                     # verify views
                     views_counter = 0
@@ -143,10 +144,8 @@ async def main():
                             elif str(message.author_signature) == "None":
                                 duplicate = 1
 
-                        if duplicate == 0 and message_difftime.days != -1:
+                        if duplicate == 0:
                             # append to participants array
-                            # print("Add participant %s (%s) %s" 
-                            #         % (message.author_signature, str(message_difftime), message.reactions.reactions[0].count))
                             participants.append(message)
 
                         if create_csv:
@@ -159,7 +158,12 @@ async def main():
 
                             write_csv(csv_rows)
 
+                elif (message_difftime.days < 0):
+                    # message newer than expected, keep searching messages
+                    continue
+
                 else:
+                    # message too old from here, stop loop
                     break
 
     # create final message with ranking

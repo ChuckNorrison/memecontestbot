@@ -24,13 +24,13 @@ The Bot was developed and tested with Python 3.10 on Debian based distro.
 ### Clone this repository
 1. `git clone https://github.com/ChuckNorrison/memecontestbot`
 2. `cd memecontestbot`
-3. Edit the file memecontestbot.py and insert your desired telegram chat id or public channel name as `CHAT_ID`
+3. Edit the file `config.py` and insert your desired telegram chat id or public channel name in `CHAT_ID`)
 
 ### Install Python 3.x
 1. `sudo apt install python3 python3-pip`
 2. `pip3 install -r requirements.txt`
 
-If you already run some python projects, keep in mind to use a [venv](https://docs.python.org/3/library/venv.html) or alternative ways to install python (check deadsnakes ppa).
+If you already run some python projects, keep in mind to use a [venv](https://docs.python.org/3/library/venv.html) or alternative ways to install python (i.e. check deadsnakes ppa to install specific python versions).
 
 ## Usage
 Start the bot with `python3 memecontestbot.py`. 

@@ -6,10 +6,11 @@ The Bot can be set as cron to post a ranking automatically.
 ## Features
 - On execute, it retrieves message posts of a given telegram chat (`CHAT_ID`) and period (`CONTEST_DAYS`) and analyze reactions to create a ranking.
 - Decide whether to post the final ranking message in a given chat or not (`FINAL_MESSAGE_CHAT_ID`)
-- Configure how much winners will get into the ranking (`CONTEST_MAX_RANKS`)
+- Configure how much winners will get into the final ranking message (`CONTEST_MAX_RANKS`)
 - Exclude message posts from analyzing (`EXCLUDE_PATTERN`)
 - Enable CSV file creation, to log all message posts found with amount of reactions and views count (`CREATE_CSV`)
 - Meme or Author based ranking (`RANK_MEMES`)
+- Collect Photos from a Group Chat (`CHAT_ID`) and post them to another Chat (`POST_PARTICIPANTS_CHAT_ID`)
 
 ## Setup Telegram App
 The first step requires you to obtain a valid Telegram API key (api_id and api_hash pair):
@@ -37,7 +38,7 @@ Start the bot with `python3 memecontestbot.py`.
 
 On first start it will ask for your api_id and api_hash and your corresponding phone number to act as userbot. The bot will use your telegram account and so it will be visible with your telegram user. Delete the file `my_account.session`, to reenter api_id and api_hash.
 
-Channels should be configured to only accept a single reaction emoji (multiple reaction emojis are not supported yet).
+Chats should be configured to only accept a single reaction emoji (multiple reaction emojis are not supported yet).
 
 Call the bot with argument `-c` or `--config` and a path to desired configfile to override default `config.py`.
 

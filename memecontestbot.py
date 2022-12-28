@@ -44,6 +44,7 @@ if path.exists(configfile):
         POST_WINNER_PHOTO
         SIGN_MESSAGES
         RANK_MEMES
+        POST_PARTICIPANTS_CHAT_ID
     except:
         print(f"Can not read from config file '{configfile}', please checkout config.py")
         quit()
@@ -84,16 +85,16 @@ async def main():
 
             if not SIGN_MESSAGES:
                 # force to set author from caption
+                message.author_signature = ""
                 if "@" in str(message.caption):
                     # extract telegram handle from caption
-                    message.author_signature = ""
                     message_caption_array = message.caption.split()
                     for caption_word in message_caption_array:
                         if caption_word.startswith("@"):
                             # make sure nobody can inject commands here
-                            message.author_signature = re.sub(r"[^a-zA-Z0-9 ]", "", caption_word)
-                    if message.author_signature == "":
-                        skip = 1
+                            message.author_signature = re.sub(r"[^a-zA-Z0-9\_]", "", caption_word)
+                if message.author_signature == "":
+                    skip = 1
 
             # check if message is a photo
             if str(message.media) == "MessageMediaType.PHOTO" and not skip:
@@ -105,80 +106,76 @@ async def main():
                 if ( (message_difftime.days <= CONTEST_DAYS-1) 
                         and not (message_difftime.days < 0) ):
 
-                    # verify views
-                    views_counter = 0
-                    if message.views:
-                        views_counter = message.views
-                    else:
-                        continue
+                    if not POST_PARTICIPANTS_CHAT_ID:
+                        # verify reactions for ranking message
+                        reaction_counter = 0
+                        try:
+                            reaction_counter = message.reactions.reactions[0].count
+                        except:
+                            continue         
+                                           
+                    # check if participant has more than one post
+                    duplicate = 0
+                    highest_count = 0
+                    for participant in participants:
 
-                    # verify reactions
-                    reaction_counter = 0
-                    try:
-                        reaction_counter = message.reactions.reactions[0].count
-                    except:
-                        continue
-
-                    # the message should have reactions and views
-                    if reaction_counter > 0 and views_counter > 0:
-
-                        # check if participant has more than one post
-                        duplicate = 0
-                        highest_count = 0
-                        for participant in participants:
-
-                            if participant.author_signature == message.author_signature:
-                                duplicate = 1
-                                if RANK_MEMES:
-                                    # already exist in participants array, only one post allowed (prefer best)
-                                    if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
-                                        # best variant already exist, do not append it again
-                                        continue
-                                    else:
-                                        # update existent meme data
-                                        participant.photo.file_id = message.photo.file_id
-                                        participant.photo.file_unique_id = message.photo.file_unique_id
-                                        participant.caption = message.caption
-                                        participant.id = message.id
-                                        participant.views = message.views
-                                        participant.reactions.reactions[0].count = message.reactions.reactions[0].count                          
+                        if participant.author_signature == message.author_signature:
+                            duplicate = 1
+                            if RANK_MEMES:
+                                # already exist in participants array, only one post allowed (prefer best)
+                                if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
+                                    # best variant already exist, do not append it again
+                                    continue
                                 else:
-                                    post_count = participant.reactions.reactions[0].count
+                                    # update existent meme data
+                                    participant.photo.file_id = message.photo.file_id
+                                    participant.photo.file_unique_id = message.photo.file_unique_id
+                                    participant.caption = message.caption
+                                    participant.id = message.id
+                                    participant.views = message.views
+                                    participant.reactions.reactions[0].count = message.reactions.reactions[0].count                          
+                            else:
+                                post_count = participant.reactions.reactions[0].count
 
-                                    # remember the best meme of current participant
-                                    if post_count > highest_count:
-                                        highest_count = post_count
+                                # remember the best meme of current participant
+                                if post_count > highest_count:
+                                    highest_count = post_count
 
-                                    if ( highest_count < message.reactions.reactions[0].count ):
-                                        # update existent meme data
-                                        participant.photo.file_id = message.photo.file_id
-                                        participant.photo.file_unique_id = message.photo.file_unique_id
-                                        participant.caption = message.caption
-                                        participant.id = message.id
-                                        participant.views = message.views
-                                    
-                                    # update reaction counter
-                                    participant.reactions.reactions[0].count += message.reactions.reactions[0].count
+                                if ( highest_count < message.reactions.reactions[0].count ):
+                                    # update existent meme data
+                                    participant.photo.file_id = message.photo.file_id
+                                    participant.photo.file_unique_id = message.photo.file_unique_id
+                                    participant.caption = message.caption
+                                    participant.id = message.id
+                                    participant.views = message.views
+                                
+                                # update reaction counter
+                                participant.reactions.reactions[0].count += message.reactions.reactions[0].count
 
-                            elif str(message.author_signature) == "None":
-                                duplicate = 1
+                        elif str(message.author_signature) == "None":
+                            duplicate = 1
 
-                        if duplicate == 0:
-                            # append to participants array
-                            participants.append(message)
-                            if POST_PARTICIPANTS_CHAT_ID:
-                                await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
-                                        "@" + message.author_signature, parse_mode=enums.ParseMode.MARKDOWN)
+                    if duplicate == 0:
+                        # append to participants array
+                        participants.append(message)
+                        if POST_PARTICIPANTS_CHAT_ID:
+                            if not SIGN_MESSAGES:
+                                message_author = "@" + message.author_signature
+                            else:
+                                message_author = "//" + message.author_signature
 
-                        if CREATE_CSV:
-                            csv_rows = []
+                            await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
+                                    message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
-                            for participant in participants:
-                                participant_postlink = build_postlink(participant)
-                                csv_rows.append([participant.author_signature, participant_postlink, 
-                                    participant.date, participant.reactions.reactions[0].count, participant.views])
+                    if CREATE_CSV:
+                        csv_rows = []
 
-                            write_csv(csv_rows)
+                        for participant in participants:
+                            participant_postlink = build_postlink(participant)
+                            csv_rows.append([participant.author_signature, participant_postlink, 
+                                participant.date, participant.reactions.reactions[0].count, participant.views])
+
+                        write_csv(csv_rows)
 
                 elif (message_difftime.days < 0 or skip):
                     # message newer than expected or excluded, keep searching messages
@@ -189,23 +186,24 @@ async def main():
                     break
 
     # create final message with ranking
-    final_message = create_ranking()
+    if not POST_PARTICIPANTS_CHAT_ID:
+        final_message = create_ranking()
 
-    if FINAL_MESSAGE_CHAT_ID:
-        async with app:
-            if winner_photo != "" and POST_WINNER_PHOTO:
-                await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
-            elif winner_photo != "" and not POST_WINNER_PHOTO:
-                await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
-            else:
-                if CONTEST_DAYS == 1:
-                    print("Something went wrong! Can not find winner photo for final ranking message")
+        if FINAL_MESSAGE_CHAT_ID:
+            async with app:
+                if winner_photo != "" and POST_WINNER_PHOTO:
+                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                elif winner_photo != "" and not POST_WINNER_PHOTO:
+                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
                 else:
-                    print("Can not find best meme photo, please fix me")
+                    if CONTEST_DAYS == 1:
+                        print("Something went wrong! Can not find winner photo for final ranking message")
+                    else:
+                        print("Can not find best meme photo, please fix me")
 
-    if CREATE_CSV and CSV_CHAT_ID:
-        async with app:
-            await app.send_document(CSV_CHAT_ID, "contest.csv", caption=header_message)
+        if CREATE_CSV and CSV_CHAT_ID:
+            async with app:
+                await app.send_document(CSV_CHAT_ID, "contest.csv", caption=header_message)
 
 def write_csv(csv_rows):
     """Write data to CSV file"""

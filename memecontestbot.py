@@ -121,6 +121,10 @@ async def main():
 
                         if participant.author_signature == message.author_signature:
                             duplicate = 1
+
+                            if POST_PARTICIPANTS_CHAT_ID:
+                                continue
+
                             if RANK_MEMES:
                                 # already exist in participants array, only one post allowed (prefer best)
                                 if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:

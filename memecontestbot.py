@@ -56,17 +56,20 @@ participants = []
 winner_photo = ""
 contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
-# Set header message
+# Create header of final message
 if RANK_MEMES:
     header_contest_type = "Memes"
 else:
     header_contest_type = "Contest Lords"
 
 formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
+
+header_message = f"Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
+
 if CONTEST_DAYS == 1:
-    header_message = f"Rangliste 24-Stunden Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
+    header_message = "Rangliste 24-Stunden " + header_message
 else:
-    header_message = f"Rangliste {CONTEST_DAYS}-Tage Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
+    header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
 
 async def main():
 
@@ -163,6 +166,9 @@ async def main():
                         if duplicate == 0:
                             # append to participants array
                             participants.append(message)
+                            if POST_PARTICIPANTS_CHAT_ID:
+                                await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
+                                        "@" + message.author_signature, parse_mode=enums.ParseMode.MARKDOWN)
 
                         if CREATE_CSV:
                             csv_rows = []

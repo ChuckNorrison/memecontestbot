@@ -53,5 +53,9 @@ SIGN_MESSAGES = True
 # True or False to rank the authors instead (adds reaction counts)
 RANK_MEMES = True
 
+# Send Contest Participant found from CHAT_ID to this chat
+# or set to False to disable this feature
+POST_PARTICIPANTS_CHAT_ID = False
+
 # END TWEAK CONFIG
 #########################

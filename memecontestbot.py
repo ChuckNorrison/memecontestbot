@@ -119,10 +119,13 @@ async def main():
                     highest_count = 0
                     for participant in participants:
 
-                        if participant.author_signature == message.author_signature:
+                        if participant.from_user.id == message.from_user.id:
                             duplicate = 1
 
                             if POST_PARTICIPANTS_CHAT_ID:
+                                if datetime.strptime(str(participant.date), "%Y-%m-%d %H:%M:%S") < message_time:
+                                    # remember only the newest meme
+                                    participant = message
                                 continue
 
                             if RANK_MEMES:
@@ -137,7 +140,8 @@ async def main():
                                     participant.caption = message.caption
                                     participant.id = message.id
                                     participant.views = message.views
-                                    participant.reactions.reactions[0].count = message.reactions.reactions[0].count                          
+                                    participant.from_user = message.from_user
+                                    participant.reactions.reactions[0].count = message.reactions.reactions[0].count                  
                             else:
                                 post_count = participant.reactions.reactions[0].count
 
@@ -152,7 +156,8 @@ async def main():
                                     participant.caption = message.caption
                                     participant.id = message.id
                                     participant.views = message.views
-                                
+                                    participant.from_user = message.from_user
+
                                 # update reaction counter
                                 participant.reactions.reactions[0].count += message.reactions.reactions[0].count
 
@@ -166,10 +171,10 @@ async def main():
                             if not SIGN_MESSAGES:
                                 message_author = "@" + message.author_signature
                             else:
-                                message_author = "//" + message.author_signature
+                                message_author = "//" + message.from_user.first_name
 
                             await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
-                                    message_author, parse_mode=enums.ParseMode.MARKDOWN)
+                                   message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
                     if CREATE_CSV:
                         csv_rows = []

@@ -174,7 +174,7 @@ async def main():
                                 message_author = "//" + message.from_user.first_name
 
                             await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
-                                   message_author, parse_mode=enums.ParseMode.MARKDOWN)
+                                    message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
                     if CREATE_CSV:
                         csv_rows = []

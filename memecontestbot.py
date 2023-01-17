@@ -119,7 +119,16 @@ async def main():
                     highest_count = 0
                     for participant in participants:
 
-                        if participant.from_user.id == message.from_user.id:
+                        try:
+                            # group author
+                            message_author = message.from_user.id
+                            participant_author = participant.from_user.id
+                        except:
+                            # channel author
+                            message_author = message.author_signature
+                            participant_author = participant.author_signature
+
+                        if participant_author == message_author:
                             duplicate = 1
 
                             if POST_PARTICIPANTS_CHAT_ID:
@@ -140,7 +149,6 @@ async def main():
                                     participant.caption = message.caption
                                     participant.id = message.id
                                     participant.views = message.views
-                                    participant.from_user = message.from_user
                                     participant.reactions.reactions[0].count = message.reactions.reactions[0].count                  
                             else:
                                 post_count = participant.reactions.reactions[0].count
@@ -156,7 +164,6 @@ async def main():
                                     participant.caption = message.caption
                                     participant.id = message.id
                                     participant.views = message.views
-                                    participant.from_user = message.from_user
 
                                 # update reaction counter
                                 participant.reactions.reactions[0].count += message.reactions.reactions[0].count
@@ -171,7 +178,10 @@ async def main():
                             if not SIGN_MESSAGES:
                                 message_author = "@" + message.author_signature
                             else:
-                                message_author = "//" + message.from_user.first_name
+                                try:
+                                    message_author = "//" + message.from_user.first_name
+                                except:
+                                    message_author = "//" + message.author_signature
 
                             await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
                                     message_author, parse_mode=enums.ParseMode.MARKDOWN)

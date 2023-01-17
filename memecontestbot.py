@@ -10,7 +10,7 @@ Start bot to create a nice ranking.
 
 from pyrogram import Client, enums
 from datetime import datetime
-from os import path
+from os import path, listdir, remove
 from argparse import ArgumentParser
 import csv
 import re
@@ -56,6 +56,7 @@ else:
 participants = []
 winner_photo = ""
 contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
+csv_filename = "contest_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv"
 
 # Create header of final message
 if RANK_MEMES:
@@ -73,6 +74,8 @@ else:
     header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
 
 async def main():
+    # print("DEBUG Monthly Stats")
+    # get_csv_winners()
 
     async with app:
         async for message in app.get_chat_history(CHAT_ID):
@@ -186,16 +189,6 @@ async def main():
                             await app.send_photo(POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
                                     message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
-                    if CREATE_CSV:
-                        csv_rows = []
-
-                        for participant in participants:
-                            participant_postlink = build_postlink(participant)
-                            csv_rows.append([participant.author_signature, participant_postlink, 
-                                participant.date, participant.reactions.reactions[0].count, participant.views])
-
-                        write_csv(csv_rows)
-
                 elif (message_difftime.days < 0 or skip):
                     # message newer than expected or excluded, keep searching messages
                     continue
@@ -220,15 +213,58 @@ async def main():
                     else:
                         print("Can not find best meme photo, please fix me")
 
+        if CREATE_CSV:
+            csv_rows = []
+
+            for participant in participants:
+                participant_postlink = build_postlink(participant)
+                csv_rows.append([participant.author_signature, participant_postlink, 
+                    participant.date, participant.reactions.reactions[0].count, participant.views])
+
+            write_csv(csv_rows)
+
         if CREATE_CSV and CSV_CHAT_ID:
             async with app:
-                await app.send_document(CSV_CHAT_ID, "contest.csv", caption=header_message)
+                await app.send_document(CSV_CHAT_ID, csv_filename, caption=header_message)
+
+def get_csv_winners():
+    """Read CSV data from all csv files"""
+    csv_rows_monthly = []
+
+    for filename in listdir():
+
+        if ( filename.endswith('.csv') 
+                and not 'monthly' in filename ):
+
+            with open(filename, newline='') as csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',')
+                for row in csvreader:
+                    csv_rows_monthly.append(row)
+
+    if path.exists("monthly.csv"):
+        remove("monthly.csv")
+
+    with open("monthly.csv", 'w') as csvfile_monthly:
+        csvwriter = csv.writer(csvfile_monthly)                    
+        csvwriter.writerows(csv_rows_monthly)
+
 
 def write_csv(csv_rows):
     """Write data to CSV file"""
-    csv_filename = "contest.csv"
+
+    # clean up, only keep 4
+    filecount = 0
+    files = listdir()
+    files = sorted(files, key = path.getmtime, reverse=True)
+    for filename in files:
+        if filename.endswith('.csv'):            
+            filecount += 1
+            if filecount > 4:
+                remove(filename)
+                continue
+
+    # write a new csv file
     csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
-    
     with open(csv_filename, 'w') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(csv_fields)

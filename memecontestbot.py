@@ -38,6 +38,7 @@ if path.exists(configfile):
         EXCLUDE_PATTERN
         FINAL_MESSAGE_FOOTER
         FINAL_MESSAGE_CHAT_ID
+        FINAL_MESSAGE_OVERALL
         POST_LINK
         CREATE_CSV
         CSV_CHAT_ID
@@ -56,7 +57,6 @@ else:
 participants = []
 winner_photo = ""
 contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
-csv_filename = "contest_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv"
 
 # Create header of final message
 if RANK_MEMES:
@@ -74,8 +74,26 @@ else:
     header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
 
 async def main():
-    # print("DEBUG Monthly Stats")
-    # get_csv_winners()
+
+    if FINAL_MESSAGE_OVERALL:
+        csv_filename = ("contest_" + str(CHAT_ID) + "_overall_" + 
+            contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+
+        # create overall csv and ranking message
+        write_overall_csv(csv_filename, "contest_" + str(CHAT_ID))
+        overall_winners = get_csv_winners(csv_filename)
+        final_message = create_overall_ranking(overall_winners)
+        # send ranking message to given chat
+        if FINAL_MESSAGE_CHAT_ID and overall_winners:
+            async with app:
+                await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+
+            if CSV_CHAT_ID:
+                async with app:
+                    await app.send_document(CSV_CHAT_ID, csv_filename, caption=header_message)
+
+        # skip everything else
+        exit()
 
     async with app:
         async for message in app.get_chat_history(CHAT_ID):
@@ -221,54 +239,38 @@ async def main():
                 csv_rows.append([participant.author_signature, participant_postlink, 
                     participant.date, participant.reactions.reactions[0].count, participant.views])
 
-            write_csv(csv_rows)
+            csv_filename = write_rows_to_csv(csv_rows, 
+                    "contest_" + str(CHAT_ID) + "_" + str(CONTEST_DAYS))
 
-        if CREATE_CSV and CSV_CHAT_ID:
-            async with app:
-                await app.send_document(CSV_CHAT_ID, csv_filename, caption=header_message)
+            if CSV_CHAT_ID and csv_filename:
+                async with app:
+                    await app.send_document(CSV_CHAT_ID, csv_filename, caption=header_message)
 
-def get_csv_winners():
-    """Read CSV data from all csv files"""
-    csv_rows_monthly = []
+def write_rows_to_csv(csv_rows, pattern):
+    """Write contest data to CSV file"""
 
-    for filename in listdir():
-
-        if ( filename.endswith('.csv') 
-                and not 'monthly' in filename ):
-
-            with open(filename, newline='') as csvfile:
-                csvreader = csv.reader(csvfile, delimiter=',')
-                for row in csvreader:
-                    csv_rows_monthly.append(row)
-
-    if path.exists("monthly.csv"):
-        remove("monthly.csv")
-
-    with open("monthly.csv", 'w') as csvfile_monthly:
-        csvwriter = csv.writer(csvfile_monthly)                    
-        csvwriter.writerows(csv_rows_monthly)
-
-
-def write_csv(csv_rows):
-    """Write data to CSV file"""
-
-    # clean up, only keep 4
+    # clean up, only keep 4 csv files
     filecount = 0
     files = listdir()
     files = sorted(files, key = path.getmtime, reverse=True)
     for filename in files:
-        if filename.endswith('.csv'):            
+        if ( filename.endswith('.csv') 
+                and pattern in filename ):            
             filecount += 1
-            if filecount > 4:
+            if filecount >= 4:
                 remove(filename)
-                continue
 
     # write a new csv file
     csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
+    csv_filename = ("contest_" + str(CHAT_ID) + "_" + 
+            str(CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+
     with open(csv_filename, 'w') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(csv_fields)
         csvwriter.writerows(csv_rows)
+
+    return csv_filename
 
 def get_winner():
     """Extracts the best post from participants and returns the winner"""
@@ -359,6 +361,87 @@ def create_ranking():
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
                 + " " + str(winner_count) \
+                + " 🏆 \n"
+
+        i += 1
+        if i > CONTEST_MAX_RANKS:
+            break
+    
+    final_message = header_message + ":\n\n" + final_message + "\n" + FINAL_MESSAGE_FOOTER
+    print(final_message)   
+
+    return final_message
+
+def write_overall_csv(csvname, pattern):
+    """Read single CSV files and write data to new overall CSV file"""
+    csv_overall_rows = []
+    csv_header = 0
+    for filename in listdir():
+        if ( filename.endswith('.csv') 
+                and not csvname in filename 
+                and pattern in filename ):
+
+            with open(filename, newline='') as csvfile:
+                csvreader = csv.reader(csvfile, delimiter=',')
+                for row in csvreader:
+                    # skip header if already written
+                    if "Username" in row and csv_header:
+                        continue
+                    else:
+                        csv_header = 1
+
+                    # remember all csv data found
+                    csv_overall_rows.append(row)
+
+    # clean up
+    if path.exists(csvname):
+        remove(csvname)
+
+    with open(csvname, 'w') as csvfile_overall:
+        csvwriter = csv.writer(csvfile_overall)                    
+        csvwriter.writerows(csv_overall_rows)
+
+def get_csv_winners(csvfile):
+    csvwinners = []
+    with open(csvfile, mode ='r') as csvfile:
+
+         csvDict = csv.DictReader(csvfile)
+
+         for row in csvDict:
+              found = 0
+              for csvwinner in csvwinners:
+                   if row['Username'] == csvwinner[0]:
+                        csvwinner[1] += int(row['Count'])
+                        found = 1
+
+              if not found:
+                   csvwinners.append([row['Username'],int(row['Count'])])
+
+    return csvwinners
+
+def create_overall_ranking(winners):
+    # init vars
+    rank = 0
+    last_count = 0
+    final_message = ""
+
+    i = 1 
+    for winner in winners:
+        winner_count = winner[1]
+
+        # update rank, same rank with same count
+        if last_count != winner_count:
+            rank += 1
+        last_count = winner_count
+
+        if not SIGN_MESSAGES:
+            winner_display_name = "@" + winner[0]
+        else:
+            winner_display_name = winner[0]
+
+        final_message = final_message + "#" + str(rank) \
+                + " " + winner_display_name \
+                + " " + str(winner[1]) \
                 + " 🏆 \n"
 
         i += 1

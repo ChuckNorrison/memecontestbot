@@ -31,6 +31,11 @@ FINAL_MESSAGE_FOOTER = f"🏆 [{EXCLUDE_PATTERN[0]}](https://t.me/mychannelname)
 # with ranking and winner photo or set to False
 FINAL_MESSAGE_CHAT_ID = False 
 
+# Collect all CSV files to a new overall CSV
+# anbd generate a ranking message based on the CSV data (i.e. useful for monthly rankings)
+# Set True or False
+FINAL_MESSAGE_OVERALL = False
+
 # link the ranked post 
 # in final message on the result counter
 POST_LINK = True 
@@ -49,8 +54,8 @@ POST_WINNER_PHOTO = True
 # True or False to find author from message caption instead
 SIGN_MESSAGES = True
 
-# Ranking based on memes not authors
-# True or False to rank the authors instead (adds reaction counts)
+# Ranking based on memes not authors (True)
+# or sum up all reactions based by author instead (False)
 RANK_MEMES = True
 
 # Send Contest Participant found from CHAT_ID to this chat

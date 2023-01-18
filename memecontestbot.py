@@ -114,7 +114,8 @@ async def main():
                         if caption_word.startswith("@"):
                             # make sure nobody can inject commands here
                             message.author_signature = re.sub(r"[^a-zA-Z0-9\_]", "", caption_word)
-                if message.author_signature == "":
+                if ( message.author_signature == "" 
+                        or "httpstme" in message.author_signature ):
                     skip = 1
 
             # check if message is a photo

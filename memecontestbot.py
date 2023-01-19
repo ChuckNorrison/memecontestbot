@@ -485,6 +485,10 @@ def create_overall_ranking(winners):
         if i > CONTEST_MAX_RANKS:
             break
     
+    ranking_time = contest_time.strftime("%Y-%m")
+    header_message = f"Rangliste {CONTEST_DAYS}-Tage"
+    header_message += f" Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"
+
     final_message = header_message + ":\n\n" + final_message + "\n" + FINAL_MESSAGE_FOOTER
     print(final_message)   
 

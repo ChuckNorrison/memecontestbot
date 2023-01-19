@@ -74,6 +74,7 @@ else:
     header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
 
 async def main():
+    global winner_photo
 
     if FINAL_MESSAGE_OVERALL:
         csv_filename = ("contest_" + str(CHAT_ID) + "_overall_" + 
@@ -88,26 +89,23 @@ async def main():
         if FINAL_MESSAGE_CHAT_ID and overall_winners:
 
             async with app:
-                
-                global winner_photo
-
                 if winner_photo != "" and POST_WINNER_PHOTO:
 
-                    # fix winner photo
+                    # get photo id from winner photo url
                     if "https://t.me/c/" in winner_photo:
                         msg_id = postlink_to_msg_id(winner_photo)
                         message = await app.get_messages(CHAT_ID, msg_id)
                         if message:                     
                             winner_photo = get_photo_id_from_msg(message)
 
-                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, 
+                            final_message, parse_mode=enums.ParseMode.MARKDOWN)
 
                 elif winner_photo != "" and not POST_WINNER_PHOTO:
-
-                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, 
+                            parse_mode=enums.ParseMode.MARKDOWN)
 
                 else:
-
                     if CONTEST_DAYS == 1:
                         print("Something went wrong! Can not find winner photo for final overall ranking message")
                     else:
@@ -115,7 +113,8 @@ async def main():
 
             if CSV_CHAT_ID:
                 async with app:
-                    await app.send_document(CSV_CHAT_ID, csv_filename, caption=header_message)
+                    await app.send_document(CSV_CHAT_ID, csv_filename, 
+                            caption=header_message)
 
         # skip everything else
         exit()
@@ -179,7 +178,8 @@ async def main():
                             duplicate = 1
 
                             if POST_PARTICIPANTS_CHAT_ID:
-                                if datetime.strptime(str(participant.date), "%Y-%m-%d %H:%M:%S") < message_time:
+                                participant_time = datetime.strptime(str(participant.date), "%Y-%m-%d %H:%M:%S")
+                                if participant_time < message_time:
                                     # remember only the newest meme
                                     participant = message
                                 continue
@@ -248,9 +248,11 @@ async def main():
         if FINAL_MESSAGE_CHAT_ID:
             async with app:
                 if winner_photo != "" and POST_WINNER_PHOTO:
-                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, 
+                            final_message, parse_mode=enums.ParseMode.MARKDOWN)
                 elif winner_photo != "" and not POST_WINNER_PHOTO:
-                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, 
+                            parse_mode=enums.ParseMode.MARKDOWN)
                 else:
                     if CONTEST_DAYS == 1:
                         print("Something went wrong! Can not find winner photo for final ranking message")
@@ -270,7 +272,8 @@ async def main():
 
             if CSV_CHAT_ID and csv_filename:
                 async with app:
-                    await app.send_document(CSV_CHAT_ID, csv_filename, caption=header_message)
+                    await app.send_document(CSV_CHAT_ID, csv_filename, 
+                            caption=header_message)
 
 def write_rows_to_csv(csv_rows, pattern):
     """Write contest data to CSV file"""
@@ -488,7 +491,6 @@ def create_overall_ranking(winners):
     return final_message
 
 def postlink_to_msg_id(postlink):
-    print(postlink)
     arrpostlink = str(postlink).split("/")
     return int(arrpostlink[-1])
 

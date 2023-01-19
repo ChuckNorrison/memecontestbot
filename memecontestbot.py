@@ -83,10 +83,35 @@ async def main():
         write_overall_csv(csv_filename, "contest_" + str(CHAT_ID))
         overall_winners = get_csv_winners(csv_filename)
         final_message = create_overall_ranking(overall_winners)
+
         # send ranking message to given chat
         if FINAL_MESSAGE_CHAT_ID and overall_winners:
+
             async with app:
-                await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                
+                global winner_photo
+
+                if winner_photo != "" and POST_WINNER_PHOTO:
+
+                    # fix winner photo
+                    if "https://t.me/c/" in winner_photo:
+                        msg_id = postlink_to_msg_id(winner_photo)
+                        message = await app.get_messages(CHAT_ID, msg_id)
+                        if message:                     
+                            winner_photo = get_photo_id_from_msg(message)
+
+                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+
+                elif winner_photo != "" and not POST_WINNER_PHOTO:
+
+                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, parse_mode=enums.ParseMode.MARKDOWN)
+
+                else:
+
+                    if CONTEST_DAYS == 1:
+                        print("Something went wrong! Can not find winner photo for final overall ranking message")
+                    else:
+                        print("Can not find best meme photo overall, please fix me")
 
             if CSV_CHAT_ID:
                 async with app:
@@ -380,6 +405,7 @@ def write_overall_csv(csvname, pattern):
     for filename in listdir():
         if ( filename.endswith('.csv') 
                 and not csvname in filename 
+                and not "_overall_" in filename
                 and pattern in filename ):
 
             with open(filename, newline='') as csvfile:
@@ -412,15 +438,18 @@ def get_csv_winners(csvfile):
               found = 0
               for csvwinner in csvwinners:
                    if row['Username'] == csvwinner[0]:
-                        csvwinner[1] += int(row['Count'])
+                        csvwinner[3] += int(row['Count'])
                         found = 1
 
               if not found:
-                   csvwinners.append([row['Username'],int(row['Count'])])
+                   csvwinners.append([str(row['Username']),str(row['Postlink']), 
+                        str(row['Timestamp']), int(row['Count']),int(row['Views'])])
 
     return csvwinners
 
 def create_overall_ranking(winners):
+    global winner_photo
+
     # init vars
     rank = 0
     last_count = 0
@@ -428,12 +457,16 @@ def create_overall_ranking(winners):
 
     i = 1 
     for winner in winners:
-        winner_count = winner[1]
+        winner_count = winner[3]
 
         # update rank, same rank with same count
         if last_count != winner_count:
             rank += 1
         last_count = winner_count
+
+        # set rank 1 winner photo
+        if rank == 1 and winner_photo == "":
+            winner_photo = winner[1]    
 
         if not SIGN_MESSAGES:
             winner_display_name = "@" + winner[0]
@@ -442,7 +475,7 @@ def create_overall_ranking(winners):
 
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
-                + " " + str(winner[1]) \
+                + " " + str(winner[3]) \
                 + " 🏆 \n"
 
         i += 1
@@ -453,5 +486,17 @@ def create_overall_ranking(winners):
     print(final_message)   
 
     return final_message
+
+def postlink_to_msg_id(postlink):
+    print(postlink)
+    arrpostlink = str(postlink).split("/")
+    return int(arrpostlink[-1])
+
+def get_photo_id_from_msg(message):
+    if str(message.media) == "MessageMediaType.PHOTO":
+        return message.photo.file_id
+    else:
+        return False
+
 
 app.run(main())

@@ -96,7 +96,9 @@ async def main():
                         msg_id = postlink_to_msg_id(winner_photo)
                         message = await app.get_messages(CHAT_ID, msg_id)
                         if message:                     
-                            winner_photo = get_photo_id_from_msg(message)
+                            photo_id = get_photo_id_from_msg(message)
+                            if photo_id:
+                                winner_photo = photo_id
 
                     await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, 
                             final_message, parse_mode=enums.ParseMode.MARKDOWN)
@@ -243,21 +245,6 @@ async def main():
 
     # create final message with ranking
     if not POST_PARTICIPANTS_CHAT_ID:
-        final_message = create_ranking()
-
-        if FINAL_MESSAGE_CHAT_ID:
-            async with app:
-                if winner_photo != "" and POST_WINNER_PHOTO:
-                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, 
-                            final_message, parse_mode=enums.ParseMode.MARKDOWN)
-                elif winner_photo != "" and not POST_WINNER_PHOTO:
-                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, 
-                            parse_mode=enums.ParseMode.MARKDOWN)
-                else:
-                    if CONTEST_DAYS == 1:
-                        print("Something went wrong! Can not find winner photo for final ranking message")
-                    else:
-                        print("Can not find best meme photo, please fix me")
 
         if CREATE_CSV:
             csv_rows = []
@@ -274,6 +261,22 @@ async def main():
                 async with app:
                     await app.send_document(CSV_CHAT_ID, csv_filename, 
                             caption=header_message)
+
+        final_message = create_ranking()
+
+        if FINAL_MESSAGE_CHAT_ID:
+            async with app:
+                if winner_photo != "" and POST_WINNER_PHOTO:
+                    await app.send_photo(FINAL_MESSAGE_CHAT_ID, winner_photo, 
+                            final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                elif winner_photo != "" and not POST_WINNER_PHOTO:
+                    await app.send_message(FINAL_MESSAGE_CHAT_ID, final_message, 
+                            parse_mode=enums.ParseMode.MARKDOWN)
+                else:
+                    if CONTEST_DAYS == 1:
+                        print("Something went wrong! Can not find winner photo for final ranking message")
+                    else:
+                        print("Can not find best meme photo, please fix me")
 
 def write_rows_to_csv(csv_rows, pattern):
     """Write contest data to CSV file"""

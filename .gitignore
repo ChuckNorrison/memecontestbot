@@ -128,5 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 *.session
-contest.csv
+*.csv
 .~lock.contest.csv#

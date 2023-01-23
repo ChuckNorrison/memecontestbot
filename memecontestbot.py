@@ -275,12 +275,17 @@ def build_message_header():
 
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 
-    header_message = f"Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
+    if not PARTITICPANTS_FROM_CSV:
+        header_message = f"Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
 
-    if CONTEST_DAYS == 1:
-        header_message = "Rangliste 24-Stunden " + header_message
+        if CONTEST_DAYS == 1:
+            header_message = "Rangliste 24-Stunden " + header_message
+        else:
+            header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
     else:
-        header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
+        ranking_time = contest_time.strftime("%Y-%m")
+        header_message = f"Rangliste {CONTEST_DAYS}-Tage"
+        header_message += f" Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"        
 
     return header_message
 
@@ -429,7 +434,7 @@ def write_overall_csv(csvname):
     """Read single CSV files and write data to new overall CSV file"""
     csv_overall_rows = []
     csv_header = 0
-    csv_pattern = "contest_" + str(CHAT_ID)
+    csv_pattern = "contest_" + str(CHAT_ID) + "_" + str(CONTEST_DAYS) + "d_"
     check = 0
     for filename in listdir():
         if ( filename.endswith('.csv') 
@@ -481,7 +486,6 @@ def get_csv_participants(csvfile):
             # check if winner was already found
             for participant in csvparticipants:
                 if row['Username'] == participant[0]:
-                    print(participant[0])
                     participant[3] += int(row['Count'])
                     participant[4] += int(row['Views'])
                     duplicate = 1
@@ -574,10 +578,6 @@ def create_overall_ranking(csvparticipants, header_message):
         if i > CONTEST_MAX_RANKS:
             break
     
-    ranking_time = contest_time.strftime("%Y-%m")
-    header_message = f"Rangliste {CONTEST_DAYS}-Tage"
-    header_message += f" Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"
-
     final_message = header_message + ":\n\n" + final_message + "\n" + FINAL_MESSAGE_FOOTER
     print(final_message)   
 

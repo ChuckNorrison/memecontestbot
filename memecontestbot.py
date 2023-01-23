@@ -14,6 +14,9 @@ from os import path, listdir, remove
 from argparse import ArgumentParser
 import csv
 import re
+import locale
+
+locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
 app = Client("my_account")
 
@@ -284,7 +287,8 @@ def build_message_header():
             header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
     else:
         ranking_time = contest_time.strftime("%Y-%m")
-        header_message = f"Rangliste {CONTEST_DAYS}-Tage"
+        ranking_message = contest_time.strftime("%B")
+        header_message = f"Rangliste {ranking_message}"
         header_message += f" Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"        
 
     return header_message
@@ -500,8 +504,6 @@ def get_csv_participants(csvfile):
                         and not (participant_difftime.days < 0) ):
                     csvparticipants.append([str(row['Username']),str(row['Postlink']), 
                             str(row['Timestamp']), int(row['Count']),int(row['Views'])])
-
-
 
     return csvparticipants
 

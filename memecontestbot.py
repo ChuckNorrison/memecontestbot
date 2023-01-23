@@ -571,6 +571,11 @@ def create_overall_ranking(csvparticipants, header_message):
         else:
             winner_display_name = winner[0]
 
+        # add post link
+        if POST_LINK:
+            winner_postlink = winner[1]
+            winner_count = f"[{winner_count}]({winner_postlink})"
+
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
                 + " " + str(winner_count) \

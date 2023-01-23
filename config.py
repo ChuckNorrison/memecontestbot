@@ -34,7 +34,7 @@ FINAL_MESSAGE_CHAT_ID = False
 # Collect all CSV files to a new overall CSV
 # anbd generate a ranking message based on the CSV data (i.e. useful for monthly rankings)
 # Set True or False
-FINAL_MESSAGE_OVERALL = False
+PARTITICPANTS_FROM_CSV = False
 
 # link the ranked post 
 # in final message on the result counter

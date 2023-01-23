@@ -38,10 +38,10 @@ if path.exists(configfile):
         EXCLUDE_PATTERN
         FINAL_MESSAGE_FOOTER
         FINAL_MESSAGE_CHAT_ID
-        FINAL_MESSAGE_OVERALL
-        POST_LINK
+        PARTITICPANTS_FROM_CSV
         CREATE_CSV
         CSV_CHAT_ID
+        POST_LINK        
         POST_WINNER_PHOTO
         SIGN_MESSAGES
         RANK_MEMES
@@ -55,47 +55,46 @@ else:
 
 # global vars
 participants = []
-winner_photo = ""
 contest_time = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
-# Create header of final message
-if RANK_MEMES:
-    header_contest_type = "Memes"
-else:
-    header_contest_type = "Contest Lords"
-
-formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
-
-header_message = f"Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
-
-if CONTEST_DAYS == 1:
-    header_message = "Rangliste 24-Stunden " + header_message
-else:
-    header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
-
 async def main():
-    global winner_photo
+    winner_photo = ""
+    header_message = build_message_header()
 
-    if FINAL_MESSAGE_OVERALL:
+    if PARTITICPANTS_FROM_CSV:
+        # collect contest data from CSV files and only winner photo from CHAT_ID
         csv_filename = ("contest_" + str(CHAT_ID) + "_overall_" + 
             contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
-        # create overall csv and ranking message
-        write_overall_csv(csv_filename, "contest_" + str(CHAT_ID))
-        overall_winners = get_csv_winners(csv_filename)
-        final_message = create_overall_ranking(overall_winners)
+        # create overall CSV and ranking message
+        csv_success = write_overall_csv(csv_filename)
+
+        # send CSV file
+        if CSV_CHAT_ID and csv_success:
+
+            async with app:
+                await app.send_document(CSV_CHAT_ID, csv_filename, 
+                        caption=header_message)
+
+        # Get winners from participants and create final message
+        csvparticipants = get_csv_participants(csv_filename)
+        final_message, winner_photo = create_overall_ranking(csvparticipants, header_message)
 
         # send ranking message to given chat
-        if FINAL_MESSAGE_CHAT_ID and overall_winners:
+        if FINAL_MESSAGE_CHAT_ID:
+
+            if not final_message:
+                print("Can not create final message from CSV participants (file: " + str(csv_filename) + ")")
+                exit()
 
             async with app:
                 if winner_photo != "" and POST_WINNER_PHOTO:
 
                     # get photo id from winner photo url
                     if "https://t.me/c/" in winner_photo:
-                        msg_id = postlink_to_msg_id(winner_photo)
+                        msg_id = get_message_id_from_postlink(winner_photo)
                         message = await app.get_messages(CHAT_ID, msg_id)
-                        if message:                     
+                        if message:
                             photo_id = get_photo_id_from_msg(message)
                             if photo_id:
                                 winner_photo = photo_id
@@ -112,11 +111,6 @@ async def main():
                         print("Something went wrong! Can not find winner photo for final overall ranking message")
                     else:
                         print("Can not find best meme photo overall, please fix me")
-
-            if CSV_CHAT_ID:
-                async with app:
-                    await app.send_document(CSV_CHAT_ID, csv_filename, 
-                            caption=header_message)
 
         # skip everything else
         exit()
@@ -247,22 +241,15 @@ async def main():
     if not POST_PARTICIPANTS_CHAT_ID:
 
         if CREATE_CSV:
-            csv_rows = []
-
-            for participant in participants:
-                participant_postlink = build_postlink(participant)
-                csv_rows.append([participant.author_signature, participant_postlink, 
-                    participant.date, participant.reactions.reactions[0].count, participant.views])
-
-            csv_filename = write_rows_to_csv(csv_rows, 
+            csv_file = write_rows_to_csv( 
                     "contest_" + str(CHAT_ID) + "_" + str(CONTEST_DAYS))
 
-            if CSV_CHAT_ID and csv_filename:
+            if CSV_CHAT_ID and csv_file:
                 async with app:
-                    await app.send_document(CSV_CHAT_ID, csv_filename, 
+                    await app.send_document(CSV_CHAT_ID, csv_file, 
                             caption=header_message)
 
-        final_message = create_ranking()
+        final_message, winner_photo = create_ranking(header_message)
 
         if FINAL_MESSAGE_CHAT_ID:
             async with app:
@@ -278,10 +265,35 @@ async def main():
                     else:
                         print("Can not find best meme photo, please fix me")
 
-def write_rows_to_csv(csv_rows, pattern):
-    """Write contest data to CSV file"""
+def build_message_header():
+    """"Create header of final message"""
 
-    # clean up, only keep 4 csv files
+    if RANK_MEMES:
+        header_contest_type = "Memes"
+    else:
+        header_contest_type = "Contest Lords"
+
+    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
+
+    header_message = f"Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
+
+    if CONTEST_DAYS == 1:
+        header_message = "Rangliste 24-Stunden " + header_message
+    else:
+        header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
+
+    return header_message
+
+def write_rows_to_csv(pattern):
+    """Write participants data to CSV file"""
+    csv_rows = []
+
+    for participant in participants:
+        participant_postlink = build_postlink(participant)
+        csv_rows.append([participant.author_signature, participant_postlink, 
+            participant.date, participant.reactions.reactions[0].count, participant.views])
+
+    # clean up, only keep 3 csv files
     filecount = 0
     files = listdir()
     files = sorted(files, key = path.getmtime, reverse=True)
@@ -292,17 +304,19 @@ def write_rows_to_csv(csv_rows, pattern):
             if filecount >= 4:
                 remove(filename)
 
-    # write a new csv file
+    # CSV header and filename
     csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
-    csv_filename = ("contest_" + str(CHAT_ID) + "_" + 
+    csv_file = ("contest_" + str(CHAT_ID) + "_" + 
             str(CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
-    with open(csv_filename, 'w') as csvfile:
+    # open file an write rows
+    with open(csv_file, 'w') as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(csv_fields)
         csvwriter.writerows(csv_rows)
 
-    return csv_filename
+    print("CSV created: %s" % csv_file)
+    return csv_file
 
 def get_winner():
     """Extracts the best post from participants and returns the winner"""
@@ -346,9 +360,9 @@ def build_postlink(message):
     postlink = "https://t.me/c/" + message_chat_id + "/" + message_id
     return postlink
 
-def create_ranking():
+def create_ranking(header_message):
     """Build the final ranking message"""
-    global winner_photo
+    winner_photo = ""
 
     # get winners
     winners = get_winners()
@@ -402,18 +416,28 @@ def create_ranking():
     final_message = header_message + ":\n\n" + final_message + "\n" + FINAL_MESSAGE_FOOTER
     print(final_message)   
 
-    return final_message
+    if final_message != "":
+        return final_message, winner_photo
+    else:
+        return False, winner_photo
 
-def write_overall_csv(csvname, pattern):
+###########################
+# CSV based ranking methods
+###########################
+
+def write_overall_csv(csvname):
     """Read single CSV files and write data to new overall CSV file"""
     csv_overall_rows = []
     csv_header = 0
+    csv_pattern = "contest_" + str(CHAT_ID)
+    check = 0
     for filename in listdir():
         if ( filename.endswith('.csv') 
                 and not csvname in filename 
                 and not "_overall_" in filename
-                and pattern in filename ):
+                and csv_pattern in filename ):
 
+            print("Collect data from CSV: %s" % filename)
             with open(filename, newline='') as csvfile:
                 csvreader = csv.reader(csvfile, delimiter=',')
                 for row in csvreader:
@@ -423,8 +447,14 @@ def write_overall_csv(csvname, pattern):
                     else:
                         csv_header = 1
 
-                    # remember all csv data found
-                    csv_overall_rows.append(row)
+                        # remember csv data found
+                        check = 1
+                        try:
+                            csv_overall_rows.append([str(row[0]), str(row[1]), 
+                                    str(row[2]), int(row[3]), int(row[4])])
+                        except:
+                            # add header
+                            csv_overall_rows.append(row)
 
     # clean up
     if path.exists(csvname):
@@ -434,27 +464,83 @@ def write_overall_csv(csvname, pattern):
         csvwriter = csv.writer(csvfile_overall)                    
         csvwriter.writerows(csv_overall_rows)
 
-def get_csv_winners(csvfile):
-    csvwinners = []
+    if check:
+        return True
+    else:
+        return False
+
+def get_csv_participants(csvfile):
+    """Collect participants from CSV file"""
+    csvparticipants = []
     with open(csvfile, mode ='r') as csvfile:
 
          csvDict = csv.DictReader(csvfile)
 
          for row in csvDict:
-              found = 0
-              for csvwinner in csvwinners:
-                   if row['Username'] == csvwinner[0]:
-                        csvwinner[3] += int(row['Count'])
-                        found = 1
+            duplicate = 0
+            # check if winner was already found
+            for participant in csvparticipants:
+                if row['Username'] == participant[0]:
+                    print(participant[0])
+                    participant[3] += int(row['Count'])
+                    participant[4] += int(row['Views'])
+                    duplicate = 1
 
-              if not found:
-                   csvwinners.append([str(row['Username']),str(row['Postlink']), 
-                        str(row['Timestamp']), int(row['Count']),int(row['Views'])])
+            # add participant to array
+            if not duplicate:
+                # check if row was in desired timeframe
+                participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
+                participant_difftime = contest_time - participant_time
 
-    return csvwinners
+                if ( (participant_difftime.days <= CONTEST_DAYS-1) 
+                        and not (participant_difftime.days < 0) ):
+                    csvparticipants.append([str(row['Username']),str(row['Postlink']), 
+                            str(row['Timestamp']), int(row['Count']),int(row['Views'])])
 
-def create_overall_ranking(winners):
-    global winner_photo
+
+
+    return csvparticipants
+
+def get_csv_winner(csvparticipants):
+    """Extracts the best post from participants and returns the winner"""
+    best_count = 0
+    winner = []
+    winner_id = -1
+
+    i = 0
+    for participant in csvparticipants:
+        if participant[3] >= best_count:
+            best_count = participant[3]
+            winner = participant
+            winner_id = i
+        i += 1
+
+    # remove winner from participants array
+    if winner_id != -1 and len(csvparticipants) >= 0:
+        csvparticipants.pop(winner_id)
+
+    return winner
+
+def get_csv_winners(csvparticipants):
+    """Get all winners and return winners array"""
+    winners = []
+
+    i = 1
+    while i <= CONTEST_MAX_RANKS:
+        current_winner = get_csv_winner(csvparticipants)
+        if current_winner:
+            #print("Add Winner %s %s" % (current_winner.author_signature, str(current_winner.reactions.reactions[0].count)))
+            winners.append(current_winner)
+        i += 1
+
+    return winners
+
+def create_overall_ranking(csvparticipants, header_message):
+    """Build the final ranking message based on a winners array"""
+    winner_photo = ""
+
+    # get winners
+    winners = get_csv_winners(csvparticipants)
 
     # init vars
     rank = 0
@@ -470,7 +556,7 @@ def create_overall_ranking(winners):
             rank += 1
         last_count = winner_count
 
-        # set rank 1 winner photo
+        # set rank 1 winner photo as message link
         if rank == 1 and winner_photo == "":
             winner_photo = winner[1]    
 
@@ -481,7 +567,7 @@ def create_overall_ranking(winners):
 
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
-                + " " + str(winner[3]) \
+                + " " + str(winner_count) \
                 + " 🏆 \n"
 
         i += 1
@@ -495,17 +581,25 @@ def create_overall_ranking(winners):
     final_message = header_message + ":\n\n" + final_message + "\n" + FINAL_MESSAGE_FOOTER
     print(final_message)   
 
-    return final_message
+    if final_message != "":
+        return final_message, winner_photo
+    else:
+        return False, winner_photo
 
-def postlink_to_msg_id(postlink):
+##################
+# Common methods
+##################
+
+def get_message_id_from_postlink(postlink):
+    """return message id from postlink"""
     arrpostlink = str(postlink).split("/")
     return int(arrpostlink[-1])
 
 def get_photo_id_from_msg(message):
+    """return photo id from message object"""
     if str(message.media) == "MessageMediaType.PHOTO":
         return message.photo.file_id
     else:
         return False
-
 
 app.run(main())

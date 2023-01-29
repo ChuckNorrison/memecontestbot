@@ -4,7 +4,7 @@ from datetime import datetime
 #########################
 # START TWEAK CONFIG HERE
 
-# channel name for public channels 
+# channel name for public channels
 # or chat id for private chats to analyze
 CHAT_ID = "mychannelname"
 
@@ -20,11 +20,11 @@ CONTEST_DAYS = 1
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = 10
 
-# posts we want to exclude from ranking. 
+# posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
 
-# simple text footer in ranking view, 
+# simple text footer in ranking view,
 # should be used to identify exclude posts
 FINAL_MESSAGE_FOOTER = f"🏆 [{EXCLUDE_PATTERN[0]}](https://t.me/mychannelname) 🏆"
 
@@ -37,7 +37,7 @@ FINAL_MESSAGE_CHAT_ID = False
 # Set True or False
 PARTITICPANTS_FROM_CSV = False
 
-# link the ranked post 
+# link the ranked post
 # in final message on the result counter
 POST_LINK = True
 

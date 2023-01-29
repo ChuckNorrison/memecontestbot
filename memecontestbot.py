@@ -26,12 +26,12 @@ app = Client("my_account")
 
 # import config
 parser = ArgumentParser()
-parser.add_argument("-c", "--config", dest="configfile",
+parser.add_argument("-c", "--config", dest="CONFIGFILE",
                     help="path to file with your config", metavar="FILE")
 args = parser.parse_args()
 
-if args.configfile:
-    configfile = args.configfile
+if args.CONFIGFILE:
+    configfile = args.CONFIGFILE
 else:
     configfile = "config.py"
 
@@ -55,9 +55,9 @@ try:
     config.SIGN_MESSAGES
     config.RANK_MEMES
     config.POST_PARTICIPANTS_CHAT_ID
-except Exception:
+except EnvironmentError as e:
     print(f"Can not read from config file '{configfile}', please checkout config.py")
-    print(Exception)
+    print(e)
     sys.exit()
 
 # global vars
@@ -165,7 +165,7 @@ async def main():
                     try:
                         reaction_counter = message.reactions.reactions[0].count
                     except Exception:
-                        continue     
+                        continue
 
                 # check if participant has more than one post
                 duplicate = 0
@@ -251,7 +251,7 @@ async def main():
     if not config.POST_PARTICIPANTS_CHAT_ID:
 
         if config.CREATE_CSV:
-            csv_file = write_rows_to_csv( 
+            csv_file = write_rows_to_csv(
                     "contest_" + str(config.CHAT_ID) + "_" + str(config.CONTEST_DAYS))
 
             if config.CSV_CHAT_ID and csv_file:
@@ -324,7 +324,7 @@ def write_rows_to_csv(pattern):
 
     # CSV header and filename
     csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
-    csv_file = ("contest_" + str(config.CHAT_ID) + "_" + 
+    csv_file = ("contest_" + str(config.CHAT_ID) + "_" +
             str(config.CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
     # open file an write rows
@@ -428,9 +428,9 @@ def create_ranking(header_message):
         i += 1
         if i > config.CONTEST_MAX_RANKS:
             break
-    
+
     final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
-    print(final_message)   
+    print(final_message)
 
     return final_message, winner_photo
 
@@ -446,8 +446,8 @@ def write_overall_csv(csvname):
     check = False
 
     for filename in listdir():
-        if ( filename.endswith('.csv') 
-                and not csvname in filename 
+        if ( filename.endswith('.csv')
+                and not csvname in filename
                 and not "_overall_" in filename
                 and csv_pattern in filename ):
 
@@ -483,9 +483,9 @@ def write_overall_csv(csvname):
 def get_csv_participants(csvfile):
     """Collect participants from CSV file"""
     csvparticipants = []
-    with open(csvfile, mode='r', encoding="utf-8") as csvfile:
+    with open(csvfile, mode='r', encoding="utf-8") as csvfile_single:
 
-        csv_dict = csv.DictReader(csvfile)
+        csv_dict = csv.DictReader(csvfile_single)
 
         for row in csv_dict:
             duplicate = 0
@@ -502,7 +502,7 @@ def get_csv_participants(csvfile):
                 participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
                 participant_difftime = contest_time - participant_time
 
-                if ( (participant_difftime.days <= config.CONTEST_DAYS-1) 
+                if ( (participant_difftime.days <= config.CONTEST_DAYS-1)
                         and not participant_difftime.days < 0 ):
                     csvparticipants.append([str(row['Username']),str(row['Postlink']),
                             str(row['Timestamp']), int(row['Count']),int(row['Views'])])
@@ -586,9 +586,9 @@ def create_overall_ranking(csvparticipants, header_message):
         i += 1
         if i > config.CONTEST_MAX_RANKS:
             break
-    
+
     final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
-    print(final_message)   
+    print(final_message)
 
     return final_message, winner_photo
 

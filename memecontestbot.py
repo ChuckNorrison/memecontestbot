@@ -50,7 +50,7 @@ try:
     config.PARTITICPANTS_FROM_CSV
     config.CREATE_CSV
     config.CSV_CHAT_ID
-    config.POST_LINK        
+    config.POST_LINK
     config.POST_WINNER_PHOTO
     config.SIGN_MESSAGES
     config.RANK_MEMES
@@ -141,7 +141,7 @@ async def main():
                         if caption_word.startswith("@"):
                             # make sure nobody can inject commands here
                             message.author_signature = re.sub(r"[^a-zA-Z0-9\_]", "", caption_word)
-                if ( message.author_signature == "" 
+                if ( message.author_signature == ""
                         or "httpstme" in message.author_signature ):
                     skip = 1
 
@@ -156,9 +156,17 @@ async def main():
             message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
             message_difftime = contest_time - message_time
 
-            if ( (message_difftime.days <= config.CONTEST_DAYS-1) 
-                    and not (message_difftime.days < 0) ):   
-                                       
+            if ( (message_difftime.days <= config.CONTEST_DAYS-1)
+                    and not message_difftime.days < 0 ):
+
+                if not config.POST_PARTICIPANTS_CHAT_ID:
+                    # verify reactions for ranking message
+                    reaction_counter = 0
+                    try:
+                        reaction_counter = message.reactions.reactions[0].count
+                    except Exception:
+                        continue     
+
                 # check if participant has more than one post
                 duplicate = 0
                 highest_count = 0
@@ -177,7 +185,9 @@ async def main():
                         duplicate = 1
 
                         if config.POST_PARTICIPANTS_CHAT_ID:
-                            participant_time = datetime.strptime(str(participant.date), "%Y-%m-%d %H:%M:%S")
+                            participant_time = datetime.strptime(str(participant.date),
+                                    "%Y-%m-%d %H:%M:%S")
+
                             if participant_time < message_time:
                                 # remember only the newest meme
                                 participant = message
@@ -200,7 +210,7 @@ async def main():
                             if post_count > highest_count:
                                 highest_count = post_count
 
-                            if ( highest_count < message.reactions.reactions[0].count ):
+                            if highest_count < message.reactions.reactions[0].count:
                                 # replace existent meme data
                                 participant.photo.file_id = message.photo.file_id
                                 participant.photo.file_unique_id = message.photo.file_unique_id
@@ -229,7 +239,7 @@ async def main():
                         await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID, message.photo.file_id,
                                 message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
-            elif (message_difftime.days < 0):
+            elif message_difftime.days < 0:
                 # message newer than expected or excluded, keep searching messages
                 continue
 
@@ -306,7 +316,7 @@ def write_rows_to_csv(pattern):
     files = listdir()
     files = sorted(files, key = path.getmtime, reverse=True)
     for filename in files:
-        if ( filename.endswith('.csv') 
+        if ( filename.endswith('.csv')
                 and pattern in filename ):
             filecount += 1
             if filecount >= 4:
@@ -318,12 +328,12 @@ def write_rows_to_csv(pattern):
             str(config.CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
     # open file an write rows
-    with open(csv_file, 'w') as csvfile:
+    with open(csv_file, mode='w', encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile)
         csvwriter.writerow(csv_fields)
         csvwriter.writerows(csv_rows)
 
-    print("CSV created: %s" % csv_file)
+    print(f"CSV created: {csv_file}")
     return csv_file
 
 def get_winner():
@@ -342,7 +352,6 @@ def get_winner():
 
     # remove winner from participants array
     if winner_id != -1 and len(participants) >= 0:
-        #print("Remove participant %s %s" % (participants[winner_id].author_signature, str(participants[winner_id].reactions.reactions[0].count)))
         participants.pop(winner_id)
 
     return winner
@@ -355,7 +364,6 @@ def get_winners():
     while i <= config.CONTEST_MAX_RANKS:
         current_winner = get_winner()
         if current_winner:
-            #print("Add Winner %s %s" % (current_winner.author_signature, str(current_winner.reactions.reactions[0].count)))
             winners.append(current_winner)
         i += 1
 
@@ -435,15 +443,16 @@ def write_overall_csv(csvname):
     csv_overall_rows = []
     csv_header = 0
     csv_pattern = "contest_" + str(config.CHAT_ID) + "_" + str(config.CONTEST_DAYS) + "d_"
-    check = 0
+    check = False
+
     for filename in listdir():
         if ( filename.endswith('.csv') 
                 and not csvname in filename 
                 and not "_overall_" in filename
                 and csv_pattern in filename ):
 
-            print("Collect data from CSV: %s" % filename)
-            with open(filename, newline='') as csvfile:
+            print(f"Collect data from CSV: {filename}")
+            with open(filename, mode = 'r', newline='', encoding="utf-8") as csvfile:
                 csvreader = csv.reader(csvfile, delimiter=',')
                 for row in csvreader:
                     # skip header if already written
@@ -453,7 +462,7 @@ def write_overall_csv(csvname):
                         csv_header = 1
 
                         # remember csv data found
-                        check = 1
+                        check = True
                         try:
                             csv_overall_rows.append([str(row[0]), str(row[1]),
                                     str(row[2]), int(row[3]), int(row[4])])
@@ -465,23 +474,20 @@ def write_overall_csv(csvname):
     if path.exists(csvname):
         remove(csvname)
 
-    with open(csvname, 'w') as csvfile_overall:
+    with open(csvname, mode='w', encoding="utf-8") as csvfile_overall:
         csvwriter = csv.writer(csvfile_overall)
         csvwriter.writerows(csv_overall_rows)
 
-    if check:
-        return True
-    else:
-        return False
+    return check
 
 def get_csv_participants(csvfile):
     """Collect participants from CSV file"""
     csvparticipants = []
-    with open(csvfile, mode ='r') as csvfile:
+    with open(csvfile, mode='r', encoding="utf-8") as csvfile:
 
-         csvDict = csv.DictReader(csvfile)
+        csv_dict = csv.DictReader(csvfile)
 
-         for row in csvDict:
+        for row in csv_dict:
             duplicate = 0
             # check if winner was already found
             for participant in csvparticipants:
@@ -497,7 +503,7 @@ def get_csv_participants(csvfile):
                 participant_difftime = contest_time - participant_time
 
                 if ( (participant_difftime.days <= config.CONTEST_DAYS-1) 
-                        and not (participant_difftime.days < 0) ):
+                        and not participant_difftime.days < 0 ):
                     csvparticipants.append([str(row['Username']),str(row['Postlink']),
                             str(row['Timestamp']), int(row['Count']),int(row['Views'])])
 
@@ -549,7 +555,7 @@ def create_overall_ranking(csvparticipants, header_message):
     last_count = 0
     final_message = ""
 
-    i = 1 
+    i = 1
     for winner in winners:
         winner_count = winner[3]
 
@@ -560,7 +566,7 @@ def create_overall_ranking(csvparticipants, header_message):
 
         # set rank 1 winner photo as message link
         if rank == 1 and winner_photo == "":
-            winner_photo = winner[1]    
+            winner_photo = winner[1]
 
         if not config.SIGN_MESSAGES:
             winner_display_name = "@" + winner[0]

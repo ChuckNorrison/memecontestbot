@@ -204,15 +204,15 @@ async def main():
                                     highest_count = post_count
 
                                 if ( highest_count < message.reactions.reactions[0].count ):
-                                    # update existent meme data
+                                    # replace existent meme data
                                     participant.photo.file_id = message.photo.file_id
                                     participant.photo.file_unique_id = message.photo.file_unique_id
                                     participant.caption = message.caption
                                     participant.id = message.id
-                                    participant.views = message.views
 
-                                # update reaction counter
+                                # update reaction counter and views
                                 participant.reactions.reactions[0].count += message.reactions.reactions[0].count
+                                participant.views += message.views
 
                         elif str(message.author_signature) == "None":
                             duplicate = 1
@@ -286,7 +286,9 @@ def build_message_header():
         else:
             header_message = f"Rangliste {CONTEST_DAYS}-Tage " + header_message
     else:
+        # get the month and year for header message
         ranking_time = contest_time.strftime("%Y-%m")
+        # get the months name for header_message
         ranking_message = contest_time.strftime("%B")
         header_message = f"Rangliste {ranking_message}"
         header_message += f" Top {CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"        

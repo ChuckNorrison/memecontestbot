@@ -70,7 +70,7 @@ async def main():
 
     if config.PARTITICPANTS_FROM_CSV:
         # collect contest data from CSV files and only winner photo from config.CHAT_ID
-        csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_" + 
+        csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_" +
             contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
         # create overall CSV and ranking message
@@ -80,7 +80,7 @@ async def main():
         if config.CSV_CHAT_ID and csv_success:
 
             async with app:
-                await app.send_document(config.CSV_CHAT_ID, csv_filename, 
+                await app.send_document(config.CSV_CHAT_ID, csv_filename,
                         caption=header_message)
 
         # Get winners from participants and create final message
@@ -106,11 +106,11 @@ async def main():
                             if photo_id:
                                 winner_photo = photo_id
 
-                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo, 
+                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
                             final_message, parse_mode=enums.ParseMode.MARKDOWN)
 
                 elif winner_photo != "" and not config.POST_WINNER_PHOTO:
-                    await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message, 
+                    await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
                             parse_mode=enums.ParseMode.MARKDOWN)
 
                 else:
@@ -157,15 +157,7 @@ async def main():
             message_difftime = contest_time - message_time
 
             if ( (message_difftime.days <= config.CONTEST_DAYS-1) 
-                    and not (message_difftime.days < 0) ):
-
-                if not config.POST_PARTICIPANTS_CHAT_ID:
-                    # verify reactions for ranking message
-                    reaction_counter = 0
-                    try:
-                        reaction_counter = message.reactions.reactions[0].count
-                    except:
-                        continue         
+                    and not (message_difftime.days < 0) ):   
                                        
                 # check if participant has more than one post
                 duplicate = 0
@@ -200,7 +192,7 @@ async def main():
                                 participant.caption = message.caption
                                 participant.id = message.id
                                 participant.views = message.views
-                                participant.reactions.reactions[0].count = message.reactions.reactions[0].count                  
+                                participant.reactions.reactions[0].count = message.reactions.reactions[0].count
                         else:
                             post_count = participant.reactions.reactions[0].count
 
@@ -234,7 +226,7 @@ async def main():
                             except:
                                 message_author = "//" + message.author_signature
 
-                        await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID, message.photo.file_id, 
+                        await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID, message.photo.file_id,
                                 message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
             elif (message_difftime.days < 0):
@@ -254,7 +246,7 @@ async def main():
 
             if config.CSV_CHAT_ID and csv_file:
                 async with app:
-                    await app.send_document(config.CSV_CHAT_ID, csv_file, 
+                    await app.send_document(config.CSV_CHAT_ID, csv_file,
                             caption=header_message)
 
         final_message, winner_photo = create_ranking(header_message)
@@ -262,10 +254,10 @@ async def main():
         if config.FINAL_MESSAGE_CHAT_ID:
             async with app:
                 if winner_photo != "" and config.POST_WINNER_PHOTO:
-                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo, 
+                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
                             final_message, parse_mode=enums.ParseMode.MARKDOWN)
                 elif winner_photo != "" and not config.POST_WINNER_PHOTO:
-                    await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message, 
+                    await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
                             parse_mode=enums.ParseMode.MARKDOWN)
                 else:
                     if config.CONTEST_DAYS == 1:
@@ -296,7 +288,7 @@ def build_message_header():
         # get the months name for header_message
         ranking_message = contest_time.strftime("%B")
         header_message = f"Rangliste {ranking_message}"
-        header_message += f" Top {config.CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"        
+        header_message += f" Top {config.CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"
 
     return header_message
 
@@ -306,7 +298,7 @@ def write_rows_to_csv(pattern):
 
     for participant in participants:
         participant_postlink = build_postlink(participant)
-        csv_rows.append([participant.author_signature, participant_postlink, 
+        csv_rows.append([participant.author_signature, participant_postlink,
             participant.date, participant.reactions.reactions[0].count, participant.views])
 
     # clean up, only keep 3 csv files
@@ -315,7 +307,7 @@ def write_rows_to_csv(pattern):
     files = sorted(files, key = path.getmtime, reverse=True)
     for filename in files:
         if ( filename.endswith('.csv') 
-                and pattern in filename ):            
+                and pattern in filename ):
             filecount += 1
             if filecount >= 4:
                 remove(filename)
@@ -463,7 +455,7 @@ def write_overall_csv(csvname):
                         # remember csv data found
                         check = 1
                         try:
-                            csv_overall_rows.append([str(row[0]), str(row[1]), 
+                            csv_overall_rows.append([str(row[0]), str(row[1]),
                                     str(row[2]), int(row[3]), int(row[4])])
                         except:
                             # add header
@@ -474,7 +466,7 @@ def write_overall_csv(csvname):
         remove(csvname)
 
     with open(csvname, 'w') as csvfile_overall:
-        csvwriter = csv.writer(csvfile_overall)                    
+        csvwriter = csv.writer(csvfile_overall)
         csvwriter.writerows(csv_overall_rows)
 
     if check:
@@ -506,7 +498,7 @@ def get_csv_participants(csvfile):
 
                 if ( (participant_difftime.days <= config.CONTEST_DAYS-1) 
                         and not (participant_difftime.days < 0) ):
-                    csvparticipants.append([str(row['Username']),str(row['Postlink']), 
+                    csvparticipants.append([str(row['Username']),str(row['Postlink']),
                             str(row['Timestamp']), int(row['Count']),int(row['Views'])])
 
     return csvparticipants

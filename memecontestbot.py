@@ -2,7 +2,8 @@
 
 """
 Simple Bot to analyze telegram post reactions and create a ranking.
-Can be configured for daily or weekly rankings (get_chat_history has a limit of posts to return from chat).
+Can be configured for daily or weekly rankings
+(get_chat_history has a limit of posts to return from chat).
 
 Usage:
 Start bot to create a nice ranking.
@@ -17,47 +18,76 @@ import importlib
 import csv
 import re
 import locale
+import logging
 
 from pyrogram import Client, enums
 
+# configure logging
+logging.basicConfig(
+    format='%(asctime)s %(levelname)s %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("memecontestbot.log"),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# set language based formatting
+# (check 'locales -a' or install with 'dpkg-reconfigure locales')
 locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
 app = Client("my_account")
 
-# import config
+# check config arguments
 parser = ArgumentParser()
 parser.add_argument("-c", "--config", dest="CONFIGFILE",
                     help="path to file with your config", metavar="FILE")
 args = parser.parse_args()
 
 if args.CONFIGFILE:
-    configfile = args.CONFIGFILE
+    config_path = path.dirname(path.abspath(args.CONFIGFILE))
+    try:
+        CONFIG = path.basename(args.CONFIGFILE)
+    except AttributeError:
+        CONFIG = args.CONFIGFILE
+
+    if CONFIG == "config.py":
+        logging.warning("Please rename your config file (config.py not allowed): %s",
+                args.CONFIGFILE)
+        sys.exit()
+    else:
+        sys.path.append(config_path)
 else:
-    configfile = "config.py"
+    # Default config file
+    CONFIG = "config.py"
 
-# import config file
-config = importlib.import_module(configfile.replace('.py',''))
-
-# verify config exists
+# start import config file
 try:
-    config.CHAT_ID
-    config.CONTEST_DATE
-    config.CONTEST_DAYS
-    config.CONTEST_MAX_RANKS
-    config.EXCLUDE_PATTERN
-    config.FINAL_MESSAGE_FOOTER
-    config.FINAL_MESSAGE_CHAT_ID
-    config.PARTITICPANTS_FROM_CSV
-    config.CREATE_CSV
-    config.CSV_CHAT_ID
-    config.POST_LINK
-    config.POST_WINNER_PHOTO
-    config.SIGN_MESSAGES
-    config.RANK_MEMES
-    config.POST_PARTICIPANTS_CHAT_ID
-except EnvironmentError as e:
-    print(f"Can not read from config file '{configfile}', please checkout config.py")
-    print(e)
+    config = importlib.import_module(CONFIG.replace('.py',''))
+    TESTCONFIG = ""
+    TESTCONFIG += '\nCHAT_ID: ' + str(config.CHAT_ID) + '\n'
+    TESTCONFIG += 'CONTEST_DATE: ' + str(config.CONTEST_DATE) + '\n'
+    TESTCONFIG += 'CONTEST_DAYS: ' + str(config.CONTEST_DAYS) + '\n'
+    TESTCONFIG += 'CONTEST_MAX_RANKS: ' + str(config.CONTEST_MAX_RANKS) + '\n'
+    TESTCONFIG += 'EXCLUDE_PATTERN: ' + str(config.EXCLUDE_PATTERN) + '\n'
+    TESTCONFIG += 'FINAL_MESSAGE_FOOTER: ' + str(config.FINAL_MESSAGE_FOOTER) + '\n'
+    TESTCONFIG += 'FINAL_MESSAGE_CHAT_ID: ' + str(config.FINAL_MESSAGE_CHAT_ID) + '\n'
+    TESTCONFIG += 'PARTITICPANTS_FROM_CSV: ' + str(config.PARTITICPANTS_FROM_CSV) + '\n'
+    TESTCONFIG += 'CREATE_CSV: ' + str(config.CREATE_CSV) + '\n'
+    TESTCONFIG += 'CSV_CHAT_ID: ' + str(config.CSV_CHAT_ID) + '\n'
+    TESTCONFIG += 'POST_LINK: ' + str(config.POST_LINK) + '\n'
+    TESTCONFIG += 'POST_WINNER_PHOTO: ' + str(config.POST_WINNER_PHOTO) + '\n'
+    TESTCONFIG += 'SIGN_MESSAGES: ' + str(config.SIGN_MESSAGES) + '\n'
+    TESTCONFIG += 'RANK_MEMES: ' + str(config.RANK_MEMES) + '\n'
+    TESTCONFIG += 'POST_PARTICIPANTS_CHAT_ID: ' + str(config.POST_PARTICIPANTS_CHAT_ID)
+except AttributeError as ex:
+    logging.error("Read config file '%s' failed!", CONFIG)
+    logging.error(TESTCONFIG)
+    logging.error(ex)
+    sys.exit()
+except ModuleNotFoundError as ex:
+    logging.error("Import '%s' failed!", CONFIG)
+    logging.error(ex)
     sys.exit()
 
 # global vars
@@ -65,6 +95,8 @@ participants = []
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
 async def main():
+    """This function will run the bot"""
+
     winner_photo = ""
     header_message = build_message_header()
 
@@ -84,14 +116,15 @@ async def main():
                         caption=header_message)
 
         # Get winners from participants and create final message
-        csvparticipants = get_csv_participants(csv_filename)
-        final_message, winner_photo = create_overall_ranking(csvparticipants, header_message)
+        csv_participants = get_csv_participants(csv_filename)
+        final_message, winner_photo = create_overall_ranking(csv_participants, header_message)
 
         # send ranking message to given chat
         if config.FINAL_MESSAGE_CHAT_ID:
 
             if not final_message:
-                print("Can not create final message from CSV participants (file: " + str(csv_filename) + ")")
+                logging.warning("Can not create final message from CSV participants (file: %s)",
+                        str(csv_filename))
                 sys.exit()
 
             async with app:
@@ -114,10 +147,9 @@ async def main():
                             parse_mode=enums.ParseMode.MARKDOWN)
 
                 else:
-                    if config.CONTEST_DAYS == 1:
-                        print("Something went wrong! Can not find winner photo for final overall ranking message")
-                    else:
-                        print("Can not find best meme photo overall, please fix me")
+                    log_msg = ("Something went wrong!"
+                            " Can not find winner photo for final overall ranking message")
+                    logging.warning(log_msg)
 
         # skip everything else
         sys.exit()
@@ -145,11 +177,8 @@ async def main():
                         or "httpstme" in message.author_signature ):
                     skip = 1
 
-            if skip:
-                continue
-
             # check if message is a photo
-            if str(message.media) != "MessageMediaType.PHOTO":
+            if str(message.media) != "MessageMediaType.PHOTO" or skip:
                 continue
 
             # check if message was in desired timeframe
@@ -161,22 +190,26 @@ async def main():
 
                 if not config.POST_PARTICIPANTS_CHAT_ID:
                     # verify reactions for ranking message
-                    reaction_counter = 0
                     try:
-                        reaction_counter = message.reactions.reactions[0].count
-                    except Exception:
+                        message_reactions = message.reactions.reactions[0].count
+                    except AttributeError:
                         continue
 
                 # check if participant has more than one post
                 duplicate = 0
                 highest_count = 0
                 for participant in participants:
+                    # verify reactions for ranking message
+                    try:
+                        participant_reactions = participant.reactions.reactions[0].count
+                    except AttributeError:
+                        continue
 
                     try:
                         # group author
                         message_author = message.from_user.id
                         participant_author = participant.from_user.id
-                    except:
+                    except AttributeError:
                         # channel author
                         message_author = message.author_signature
                         participant_author = participant.author_signature
@@ -194,15 +227,16 @@ async def main():
                             continue
 
                         if config.RANK_MEMES:
-                            # already exist in participants array, only one post allowed (prefer best)
-                            if participant.reactions.reactions[0].count > message.reactions.reactions[0].count:
+                            # already exist in participants array,
+                            # only one post allowed (prefer best)
+                            if participant_reactions > message_reactions:
                                 # update existent meme data
                                 participant.photo.file_id = message.photo.file_id
                                 participant.photo.file_unique_id = message.photo.file_unique_id
                                 participant.caption = message.caption
                                 participant.id = message.id
                                 participant.views = message.views
-                                participant.reactions.reactions[0].count = message.reactions.reactions[0].count
+                                participant.reactions.reactions[0].count = message_reactions
                         else:
                             post_count = participant.reactions.reactions[0].count
 
@@ -210,7 +244,7 @@ async def main():
                             if post_count > highest_count:
                                 highest_count = post_count
 
-                            if highest_count < message.reactions.reactions[0].count:
+                            if highest_count < message_reactions:
                                 # replace existent meme data
                                 participant.photo.file_id = message.photo.file_id
                                 participant.photo.file_unique_id = message.photo.file_unique_id
@@ -218,7 +252,7 @@ async def main():
                                 participant.id = message.id
 
                             # update reaction counter and views
-                            participant.reactions.reactions[0].count += message.reactions.reactions[0].count
+                            participant.reactions.reactions[0].count += message_reactions
                             participant.views += message.views
 
                     elif str(message.author_signature) == "None":
@@ -233,10 +267,12 @@ async def main():
                         else:
                             try:
                                 message_author = "//" + message.from_user.first_name
-                            except:
+                            except AttributeError:
                                 message_author = "//" + message.author_signature
 
-                        await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID, message.photo.file_id,
+                        logging.info(message_author)
+                        await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
+                                message.photo.file_id,
                                 message_author, parse_mode=enums.ParseMode.MARKDOWN)
 
             elif message_difftime.days < 0:
@@ -270,10 +306,9 @@ async def main():
                     await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
                             parse_mode=enums.ParseMode.MARKDOWN)
                 else:
-                    if config.CONTEST_DAYS == 1:
-                        print("Something went wrong! Can not find winner photo for final ranking message")
-                    else:
-                        print("Can not find best meme photo, please fix me")
+                    log_msg = ("Something went wrong!"
+                            " Can not find winner photo for final ranking message")
+                    logging.warning(log_msg)
 
 def build_message_header():
     """"Create header of final message"""
@@ -286,7 +321,8 @@ def build_message_header():
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 
     if not config.PARTITICPANTS_FROM_CSV:
-        header_message = f"Top {config.CONTEST_MAX_RANKS} {header_contest_type} (Stand: {formatted_date})"
+        header_message = (f"Top {config.CONTEST_MAX_RANKS} "
+                f"{header_contest_type} (Stand: {formatted_date})")
 
         if config.CONTEST_DAYS == 1:
             header_message = "Rangliste 24-Stunden " + header_message
@@ -298,7 +334,8 @@ def build_message_header():
         # get the months name for header_message
         ranking_message = contest_time.strftime("%B")
         header_message = f"Rangliste {ranking_message}"
-        header_message += f" Top {config.CONTEST_MAX_RANKS} {header_contest_type} (Stand: {ranking_time} cache)"
+        header_message += (f" Top {config.CONTEST_MAX_RANKS} "
+                f"{header_contest_type} (Stand: {ranking_time} cache)")
 
     return header_message
 
@@ -333,7 +370,7 @@ def write_rows_to_csv(pattern):
         csvwriter.writerow(csv_fields)
         csvwriter.writerows(csv_rows)
 
-    print(f"CSV created: {csv_file}")
+    logging.info("CSV created: %s", csv_file)
     return csv_file
 
 def get_winner():
@@ -430,7 +467,7 @@ def create_ranking(header_message):
             break
 
     final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
-    print(final_message)
+    logging.info(final_message)
 
     return final_message, winner_photo
 
@@ -451,24 +488,25 @@ def write_overall_csv(csvname):
                 and not "_overall_" in filename
                 and csv_pattern in filename ):
 
-            print(f"Collect data from CSV: {filename}")
+            logging.info("Collect data from CSV: %s", filename)
+
             with open(filename, mode = 'r', newline='', encoding="utf-8") as csvfile:
                 csvreader = csv.reader(csvfile, delimiter=',')
                 for row in csvreader:
                     # skip header if already written
                     if "Username" in row and csv_header:
                         continue
-                    else:
-                        csv_header = 1
 
-                        # remember csv data found
-                        check = True
-                        try:
-                            csv_overall_rows.append([str(row[0]), str(row[1]),
-                                    str(row[2]), int(row[3]), int(row[4])])
-                        except:
-                            # add header
-                            csv_overall_rows.append(row)
+                    csv_header = 1
+
+                    # remember csv data found
+                    check = True
+                    try:
+                        csv_overall_rows.append([str(row[0]), str(row[1]),
+                                str(row[2]), int(row[3]), int(row[4])])
+                    except ValueError:
+                        # add header
+                        csv_overall_rows.append(row)
 
     # clean up
     if path.exists(csvname):
@@ -537,7 +575,10 @@ def get_csv_winners(csvparticipants):
     while i <= config.CONTEST_MAX_RANKS:
         current_winner = get_csv_winner(csvparticipants)
         if current_winner:
-            #print("Add Winner %s %s" % (current_winner.author_signature, str(current_winner.reactions.reactions[0].count)))
+            logging.debug("Add Winner %s %s",
+                    current_winner.author_signature,
+                    str(current_winner.reactions.reactions[0].count)
+            )
             winners.append(current_winner)
         i += 1
 
@@ -588,7 +629,7 @@ def create_overall_ranking(csvparticipants, header_message):
             break
 
     final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
-    print(final_message)
+    logging.info(final_message)
 
     return final_message, winner_photo
 
@@ -605,7 +646,7 @@ def get_photo_id_from_msg(message):
     """return photo id from message object"""
     if str(message.media) == "MessageMediaType.PHOTO":
         return message.photo.file_id
-    else:
-        return False
+
+    return False
 
 app.run(main())

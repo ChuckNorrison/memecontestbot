@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+
+"""Example config file"""
+
 from datetime import datetime
 
 #########################

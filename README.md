@@ -1,10 +1,11 @@
 # memecontestbot
-A telegram bot for a telegram channel ranking based on reactions. 
+A telegram bot for channel or group ranking based on reactions on photo messages like a meme contest.
 
-The Bot can be set as cron to post a ranking automatically.
+The Bot can be set as cron to post a ranking automatically. 
+Daily, weekly or monthly ranking messages for your Telegram Channel or Group.
 
 ## Features
-- On execute, it retrieves message posts of a given telegram chat (`CHAT_ID`) and period (`CONTEST_DAYS`) and analyze reactions to create a ranking.
+- On execute, it retrieves message posts of a given telegram chat (`CHAT_ID`) and period (`CONTEST_DAYS`). It analyze reactions to create a ranking.
 - Decide whether to post the final ranking message in a given chat or not (`FINAL_MESSAGE_CHAT_ID`)
 - Configure how much winners will get into the final ranking message (`CONTEST_MAX_RANKS`)
 - Exclude message posts from analyzing (`EXCLUDE_PATTERN`)
@@ -20,7 +21,7 @@ The first step requires you to obtain a valid Telegram API key (api_id and api_h
 - Done. The API key consists of two parts: api_id and api_hash. Keep it secret.
 
 ## Setup Telegram Bot
-The Bot was developed and tested with Python 3.10 on Debian based distro.
+The Bot was developed and tested with Python 3.8+ on Debian based distro.
 
 ### Clone this repository
 - `git clone https://github.com/ChuckNorrison/memecontestbot`
@@ -42,4 +43,4 @@ Chats should be configured to only accept a single reaction emoji (multiple reac
 
 Call the bot with argument `-c` or `--config` and a path to desired configfile to override default `config.py`.
 
-More detailed infos can be found in the [pyrogram docs](https://docs.pyrogram.org/start/setup)
+More detailed infos for Telegram API used can be found in the [pyrogram docs](https://docs.pyrogram.org/start/setup)

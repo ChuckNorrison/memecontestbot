@@ -1,4 +1,6 @@
 # memecontestbot
+[![Pylint](https://github.com/ChuckNorrison/memecontestbot/actions/workflows/pylint.yml/badge.svg)](https://github.com/ChuckNorrison/memecontestbot/actions/workflows/pylint.yml)
+
 A telegram bot for channel or group ranking based on reactions on photo messages like a meme contest.
 
 The Bot can be set as cron to post a ranking automatically. 

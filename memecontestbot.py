@@ -102,8 +102,8 @@ async def main():
 
     if config.PARTITICPANTS_FROM_CSV:
         # collect contest data from CSV files and only winner photo from config.CHAT_ID
-        csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_" +
-            contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+        csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_"
+            + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
         # create overall CSV and ranking message
         csv_success = write_overall_csv(csv_filename)
@@ -182,7 +182,9 @@ async def main():
                 continue
 
             # check if message was in desired timeframe
-            message_time = datetime.strptime(str(message.date), "%Y-%m-%d %H:%M:%S")
+            message_time = datetime.strptime(
+                    str(message.date),
+                    "%Y-%m-%d %H:%M:%S")
             message_difftime = contest_time - message_time
 
             if ( (message_difftime.days <= config.CONTEST_DAYS-1)
@@ -193,52 +195,43 @@ async def main():
                     try:
                         message_reactions = message.reactions.reactions[0].count
                     except AttributeError:
+                        # skip this message for missing reactions
                         continue
 
-                # check if participant has more than one post
+                # check if participant was already found
                 duplicate = 0
                 highest_count = 0
                 for participant in participants:
-                    # verify reactions for ranking message
-                    try:
-                        participant_reactions = participant.reactions.reactions[0].count
-                    except AttributeError:
-                        continue
+                    message_author = get_author(message)
 
-                    try:
-                        # group author
-                        message_author = message.from_user.id
-                        participant_author = participant.from_user.id
-                    except AttributeError:
-                        # channel author
-                        message_author = message.author_signature
-                        participant_author = participant.author_signature
-
-                    if participant_author == message_author:
+                    if participant["author"] == message_author:
                         duplicate = 1
 
                         if config.POST_PARTICIPANTS_CHAT_ID:
-                            participant_time = datetime.strptime(str(participant.date),
+                            participant_time = datetime.strptime(
+                                    str(participant["date"]),
                                     "%Y-%m-%d %H:%M:%S")
 
                             if participant_time < message_time:
                                 # remember only the newest meme
-                                participant = message
+                                participant = create_participant(message)
                             continue
 
                         if config.RANK_MEMES:
                             # already exist in participants array,
                             # only one post allowed (prefer best)
-                            if participant_reactions > message_reactions:
+                            if participant["count"] < message_reactions:
                                 # update existent meme data
-                                participant.photo.file_id = message.photo.file_id
-                                participant.photo.file_unique_id = message.photo.file_unique_id
-                                participant.caption = message.caption
-                                participant.id = message.id
-                                participant.views = message.views
-                                participant.reactions.reactions[0].count = message_reactions
+                                participant = update_participant(participant, message)
+
+                                # update stats
+                                participant["views"] = message.views
+                                participant["count"] = message_reactions
+                            else:
+                                # nothing to do, keep this
+                                continue
                         else:
-                            post_count = participant.reactions.reactions[0].count
+                            post_count = participant["count"]
 
                             # remember the best meme of current participant
                             if post_count > highest_count:
@@ -246,21 +239,19 @@ async def main():
 
                             if highest_count < message_reactions:
                                 # replace existent meme data
-                                participant.photo.file_id = message.photo.file_id
-                                participant.photo.file_unique_id = message.photo.file_unique_id
-                                participant.caption = message.caption
-                                participant.id = message.id
+                                participant = update_participant(participant, message)
 
-                            # update reaction counter and views
-                            participant.reactions.reactions[0].count += message_reactions
-                            participant.views += message.views
+                            # update reaction counter and views, sum up
+                            participant["count"] += message_reactions
+                            participant["views"] += message.views
 
                     elif str(message.author_signature) == "None":
                         duplicate = 1
 
                 if duplicate == 0:
                     # append to participants array
-                    participants.append(message)
+                    new_participant = create_participant(message)
+                    participants.append(new_participant)
                     if config.POST_PARTICIPANTS_CHAT_ID:
                         if not config.SIGN_MESSAGES:
                             message_author = "@" + message.author_signature
@@ -310,6 +301,47 @@ async def main():
                             " Can not find winner photo for final ranking message")
                     logging.warning(log_msg)
 
+def create_participant(message):
+    """Return new participant as dict from message object"""
+    message_author = get_author(message)
+
+    try:
+        message_counter = message.reactions.reactions[0].count
+    except AttributeError:
+        message_counter = 0
+
+    participant = {
+        "count": message_counter,
+        "views": message.views,
+        "caption": message.caption,
+        "photo_id": message.photo.file_id,
+        "author": str(message_author),
+        "date": str(message.date),
+        "id": message.id,
+        "chat_id": message.chat.id
+    }
+    return participant
+
+def update_participant(participant, message):
+    """Update existent participant without stats"""
+    participant["photo_id"] = message.photo.file_id
+    participant["caption"] = message.caption
+    participant["id"] = message.id
+    participant["date"] = str(message.date)
+
+    return participant
+
+def get_author(message):
+    """Return author from message object"""
+    try:
+        # group author
+        message_author = message.from_user.id
+    except AttributeError:
+        # channel author
+        message_author = message.author_signature
+
+    return message_author
+
 def build_message_header():
     """"Create header of final message"""
 
@@ -345,8 +377,13 @@ def write_rows_to_csv(pattern):
 
     for participant in participants:
         participant_postlink = build_postlink(participant)
-        csv_rows.append([participant.author_signature, participant_postlink,
-            participant.date, participant.reactions.reactions[0].count, participant.views])
+        csv_rows.append([
+            participant["author"],
+            participant_postlink,
+            participant["date"],
+            participant["count"],
+            participant["views"]
+        ])
 
     # clean up, only keep 3 csv files
     filecount = 0
@@ -361,8 +398,8 @@ def write_rows_to_csv(pattern):
 
     # CSV header and filename
     csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
-    csv_file = ("contest_" + str(config.CHAT_ID) + "_" +
-            str(config.CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+    csv_file = ("contest_" + str(config.CHAT_ID) + "_"
+            + str(config.CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
 
     # open file an write rows
     with open(csv_file, mode='w', encoding="utf-8") as csvfile:
@@ -381,8 +418,8 @@ def get_winner():
 
     i = 0
     for participant in participants:
-        if participant.reactions.reactions[0].count >= best_count:
-            best_count = participant.reactions.reactions[0].count
+        if participant["count"] >= best_count:
+            best_count = participant["count"]
             winner = participant
             winner_id = i
         i += 1
@@ -406,11 +443,11 @@ def get_winners():
 
     return winners
 
-def build_postlink(message):
+def build_postlink(participant):
     """Builds link to given message"""
-    message_id = str(message.id)
-    message_chat_id = str(message.chat.id).replace("-100","")
-    postlink = "https://t.me/c/" + message_chat_id + "/" + message_id
+    participant_id = str(participant["id"])
+    participant_chat_id = str(participant["chat_id"]).replace("-100","")
+    postlink = "https://t.me/c/" + participant_chat_id + "/" + participant_id
     return postlink
 
 def create_ranking(header_message):
@@ -428,7 +465,7 @@ def create_ranking(header_message):
     i = 1
     for winner in winners:
 
-        winner_count = winner.reactions.reactions[0].count
+        winner_count = winner["count"]
 
         # update rank, same rank with same count
         if last_count != winner_count:
@@ -437,16 +474,16 @@ def create_ranking(header_message):
 
         # set rank 1 winner photo
         if rank == 1 and winner_photo == "":
-            winner_photo = winner.photo.file_id
+            winner_photo = winner["photo_id"]
 
         # check for telegram handles in caption
-        winner_display_name = str(winner.author_signature)
+        winner_display_name = str(winner["author"])
         if not winner_display_name:
             winner_display_name = "None"
 
-        if "@" in str(winner.caption):
+        if "@" in str(winner["caption"]):
             # extract telegram handle from caption
-            winner_caption_array = winner.caption.split()
+            winner_caption_array = winner["caption"].split()
             for caption_word in winner_caption_array:
                 if caption_word.startswith("@"):
                     # make sure nobody can inject commands here

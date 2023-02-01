@@ -334,7 +334,7 @@ def cleanup_csv_files(pattern):
     filecount = 0
 
     try:
-        max_files = config.CSV_CLEAN_UP
+        max_files = int(config.CSV_CLEAN_UP)
     except AttributeError:
         return False
 

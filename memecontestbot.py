@@ -515,14 +515,12 @@ def write_overall_csv(csvname):
     """Read single CSV files and write data to new overall CSV file"""
     csv_overall_rows = []
     csv_header = 0
-    csv_pattern = "contest_" + str(config.CHAT_ID) + "_" + str(config.CONTEST_DAYS) + "d_"
     check = False
 
     for filename in listdir():
         if ( filename.endswith('.csv')
                 and not csvname in filename
-                and not "_overall_" in filename
-                and csv_pattern in filename ):
+                and not "_overall_" in filename ):
 
             logging.info("Collect data from CSV: %s", filename)
 
@@ -566,7 +564,13 @@ def get_csv_participants(csvfile):
 
             # check if winner was already found
             for participant in csvparticipants:
-                if row['Username'] == participant[0]:
+
+                # check for same post in different CSV files
+                if row['Postlink'] == participant[1]:
+                    duplicate = True
+
+                # check if User already found and add stats
+                elif row['Username'] == participant[0]:
                     participant[3] += int(row['Count'])
                     participant[4] += int(row['Views'])
                     duplicate = True

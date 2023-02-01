@@ -47,6 +47,11 @@ POST_LINK = True
 # Create a CSV file with all participants found
 CREATE_CSV = True
 
+# Cleanup CSV files matching the pattern.
+# 'contest_{CHAT_ID}_{CONTEST_DAYS}d'
+# Number to of files to keep or False
+CSV_CLEAN_UP = 4
+
 # Send CSV file to a given chat id
 CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
 

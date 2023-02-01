@@ -329,6 +329,29 @@ def build_ranking_caption():
 
     return header_message
 
+def cleanup_csv_files(pattern):
+    """clean up CSV, only keep n csv files"""
+    filecount = 0
+
+    try:
+        max_files = config.CSV_CLEAN_UP
+    except AttributeError:
+        return False
+
+    if config.CSV_CLEAN_UP:
+
+        files = listdir()
+        files = sorted(files, key = path.getmtime, reverse=True)
+        for filename in files:
+            if ( filename.endswith('.csv')
+                    and pattern in filename ):
+                # count files found
+                filecount += 1
+                if filecount >= max_files:
+                    remove(filename)
+
+    return filecount
+
 def write_rows_to_csv(pattern):
     """Write participants data to CSV file"""
     csv_rows = []
@@ -343,16 +366,7 @@ def write_rows_to_csv(pattern):
             participant["views"]
         ])
 
-    # clean up, only keep 3 csv files
-    filecount = 0
-    files = listdir()
-    files = sorted(files, key = path.getmtime, reverse=True)
-    for filename in files:
-        if ( filename.endswith('.csv')
-                and pattern in filename ):
-            filecount += 1
-            if filecount >= 4:
-                remove(filename)
+    cleanup_csv_files(pattern)
 
     # CSV header and filename
     csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']

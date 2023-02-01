@@ -97,88 +97,29 @@ contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 async def main():
     """This function will run the bot"""
 
-    winner_photo = ""
-    header_message = build_message_header()
-
     if config.PARTITICPANTS_FROM_CSV:
-        # collect contest data from CSV files and only winner photo from config.CHAT_ID
-        csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_"
-            + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+        # create a ranking message from CSV data
+        await create_csv_ranking()
 
-        # create overall CSV and ranking message
-        csv_success = write_overall_csv(csv_filename)
-
-        # send CSV file
-        if config.CSV_CHAT_ID and csv_success:
-
-            async with app:
-                await app.send_document(config.CSV_CHAT_ID, csv_filename,
-                        caption=header_message)
-
-        # Get winners from participants and create final message
-        csv_participants = get_csv_participants(csv_filename)
-        final_message, winner_photo = create_overall_ranking(csv_participants, header_message)
-
-        # send ranking message to given chat
-        if config.FINAL_MESSAGE_CHAT_ID:
-
-            if not final_message:
-                logging.warning("Can not create final message from CSV participants (file: %s)",
-                        str(csv_filename))
-                sys.exit()
-
-            async with app:
-                if winner_photo != "" and config.POST_WINNER_PHOTO:
-
-                    # get photo id from winner photo url
-                    if "https://t.me/c/" in winner_photo:
-                        msg_id = get_message_id_from_postlink(winner_photo)
-                        message = await app.get_messages(config.CHAT_ID, msg_id)
-                        if message:
-                            photo_id = get_photo_id_from_msg(message)
-                            if photo_id:
-                                winner_photo = photo_id
-
-                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
-                            final_message, parse_mode=enums.ParseMode.MARKDOWN)
-
-                elif winner_photo != "" and not config.POST_WINNER_PHOTO:
-                    await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
-                            parse_mode=enums.ParseMode.MARKDOWN)
-
-                else:
-                    log_msg = ("Something went wrong!"
-                            " Can not find winner photo for final overall ranking message")
-                    logging.warning(log_msg)
-
-        # skip everything else
+        # do not walk through chat history
         sys.exit()
+
+    header_message = build_ranking_caption()
 
     async with app:
         async for message in app.get_chat_history(config.CHAT_ID):
-            skip = 0
-            # check excludes
-            for exclude in config.EXCLUDE_PATTERN:
-                if exclude in str(message.caption):
-                    # skip this message
-                    skip = 1
 
-            if not config.SIGN_MESSAGES:
-                # force to set author from caption
-                message.author_signature = ""
-                if "@" in str(message.caption):
-                    # extract telegram handle from caption
-                    message_caption_array = message.caption.split()
-                    for caption_word in message_caption_array:
-                        if caption_word.startswith("@"):
-                            # make sure nobody can inject commands here
-                            message.author_signature = re.sub(r"[^a-zA-Z0-9\_]", "", caption_word)
-                if ( message.author_signature == ""
-                        or "httpstme" in message.author_signature ):
-                    skip = 1
+            # check excludes in message caption
+            if check_excludes(message.caption):
+                continue
 
             # check if message is a photo
-            if str(message.media) != "MessageMediaType.PHOTO" or skip:
+            if str(message.media) != "MessageMediaType.PHOTO":
+                continue
+
+            # check for valid author in message caption
+            message_author = get_author(message)
+            if not message_author:
                 continue
 
             # check if message was in desired timeframe
@@ -190,6 +131,7 @@ async def main():
             if ( (message_difftime.days <= config.CONTEST_DAYS-1)
                     and not message_difftime.days < 0 ):
 
+                message_reactions = 0
                 if not config.POST_PARTICIPANTS_CHAT_ID:
                     # verify reactions for ranking message
                     try:
@@ -199,13 +141,12 @@ async def main():
                         continue
 
                 # check if participant was already found
-                duplicate = 0
+                duplicate = False
                 highest_count = 0
                 for participant in participants:
-                    message_author = get_author(message)
 
                     if participant["author"] == message_author:
-                        duplicate = 1
+                        duplicate = True
 
                         if config.POST_PARTICIPANTS_CHAT_ID:
                             participant_time = datetime.strptime(
@@ -214,7 +155,7 @@ async def main():
 
                             if participant_time < message_time:
                                 # remember only the newest meme
-                                participant = create_participant(message)
+                                participant = create_participant(message, message_author)
                             continue
 
                         if config.RANK_MEMES:
@@ -245,23 +186,20 @@ async def main():
                             participant["count"] += message_reactions
                             participant["views"] += message.views
 
-                    elif str(message.author_signature) == "None":
-                        duplicate = 1
+                    elif message_author == "None":
+                        duplicate = True
 
-                if duplicate == 0:
+                if not duplicate:
                     # append to participants array
-                    new_participant = create_participant(message)
+                    new_participant = create_participant(message, message_author)
                     participants.append(new_participant)
-                    if config.POST_PARTICIPANTS_CHAT_ID:
-                        if not config.SIGN_MESSAGES:
-                            message_author = "@" + message.author_signature
-                        else:
-                            try:
-                                message_author = "//" + message.from_user.first_name
-                            except AttributeError:
-                                message_author = "//" + message.author_signature
 
-                        logging.info(message_author)
+                    if config.POST_PARTICIPANTS_CHAT_ID:
+
+                        if not config.SIGN_MESSAGES:
+                            message_author = "@" + message_author
+                        logging.info("Repost %s (message id: %s)", message_author, message.id)
+
                         await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
                                 message.photo.file_id,
                                 message_author, parse_mode=enums.ParseMode.MARKDOWN)
@@ -274,37 +212,37 @@ async def main():
                 # message too old from here, stop loop
                 break
 
-    # create final message with ranking
-    if not config.POST_PARTICIPANTS_CHAT_ID:
+        # create final message with ranking
+        if not config.POST_PARTICIPANTS_CHAT_ID:
 
-        if config.CREATE_CSV:
-            csv_file = write_rows_to_csv(
-                    "contest_" + str(config.CHAT_ID) + "_" + str(config.CONTEST_DAYS))
+            if config.CREATE_CSV:
 
-            if config.CSV_CHAT_ID and csv_file:
-                async with app:
+                csv_file = write_rows_to_csv(
+                        "contest_" + str(config.CHAT_ID) + "_" + str(config.CONTEST_DAYS))
+
+                if config.CSV_CHAT_ID and csv_file:
                     await app.send_document(config.CSV_CHAT_ID, csv_file,
                             caption=header_message)
 
-        final_message, winner_photo = create_ranking(header_message)
+            final_message, winner_photo = create_ranking(header_message)
 
-        if config.FINAL_MESSAGE_CHAT_ID:
-            async with app:
+            if config.FINAL_MESSAGE_CHAT_ID:
+
                 if winner_photo != "" and config.POST_WINNER_PHOTO:
                     await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
                             final_message, parse_mode=enums.ParseMode.MARKDOWN)
+
                 elif winner_photo != "" and not config.POST_WINNER_PHOTO:
                     await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
                             parse_mode=enums.ParseMode.MARKDOWN)
+
                 else:
                     log_msg = ("Something went wrong!"
                             " Can not find winner photo for final ranking message")
                     logging.warning(log_msg)
 
-def create_participant(message):
+def create_participant(message, author):
     """Return new participant as dict from message object"""
-    message_author = get_author(message)
-
     try:
         message_counter = message.reactions.reactions[0].count
     except AttributeError:
@@ -315,11 +253,12 @@ def create_participant(message):
         "views": message.views,
         "caption": message.caption,
         "photo_id": message.photo.file_id,
-        "author": str(message_author),
+        "author": author,
         "date": str(message.date),
         "id": message.id,
         "chat_id": message.chat.id
     }
+
     return participant
 
 def update_participant(participant, message):
@@ -333,16 +272,35 @@ def update_participant(participant, message):
 
 def get_author(message):
     """Return author from message object"""
-    try:
-        # group author
-        message_author = message.from_user.id
-    except AttributeError:
-        # channel author
-        message_author = message.author_signature
+    message_author = False
+
+    if not config.SIGN_MESSAGES:
+        # force to set author from caption
+        # and not from channel signature
+        if "@" in str(message.caption):
+            # extract telegram handle from caption
+            message_caption_array = message.caption.split()
+            for caption_word in message_caption_array:
+                if caption_word.startswith("@"):
+                    # make sure nobody can inject commands here
+                    message_author = re.sub(r"[^a-zA-Z0-9\_]", "", caption_word)
+
+        # filter bad authors
+        if ( message_author
+                and "httpstme" in message_author ):
+            message_author = False
+
+    else:
+        try:
+            # group author
+            message_author = message.from_user.id
+        except AttributeError:
+            # channel author
+            message_author = message.author_signature
 
     return message_author
 
-def build_message_header():
+def build_ranking_caption():
     """"Create header of final message"""
 
     if config.RANK_MEMES:
@@ -443,13 +401,6 @@ def get_winners():
 
     return winners
 
-def build_postlink(participant):
-    """Builds link to given message"""
-    participant_id = str(participant["id"])
-    participant_chat_id = str(participant["chat_id"]).replace("-100","")
-    postlink = "https://t.me/c/" + participant_chat_id + "/" + participant_id
-    return postlink
-
 def create_ranking(header_message):
     """Build the final ranking message"""
 
@@ -476,18 +427,11 @@ def create_ranking(header_message):
         if rank == 1 and winner_photo == "":
             winner_photo = winner["photo_id"]
 
-        # check for telegram handles in caption
-        winner_display_name = str(winner["author"])
-        if not winner_display_name:
-            winner_display_name = "None"
-
-        if "@" in str(winner["caption"]):
-            # extract telegram handle from caption
-            winner_caption_array = winner["caption"].split()
-            for caption_word in winner_caption_array:
-                if caption_word.startswith("@"):
-                    # make sure nobody can inject commands here
-                    winner_display_name = re.sub(r"@[^a-zA-Z0-9 ]", "", caption_word)
+        # author prefix for telegram handle
+        if not config.SIGN_MESSAGES:
+            winner_display_name = "@" + winner["author"]
+        else:
+            winner_display_name = winner["author"]
 
         # add post link
         if config.POST_LINK:
@@ -511,6 +455,61 @@ def create_ranking(header_message):
 ###########################
 # CSV based ranking methods
 ###########################
+
+async def create_csv_ranking():
+    """Run collect data from CSV files mode"""
+
+    header_message = build_ranking_caption()
+
+    # collect contest data from CSV files and only winner photo from config.CHAT_ID
+    csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_"
+        + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
+
+    # create overall CSV and ranking message
+    csv_success = write_overall_csv(csv_filename)
+
+    # send CSV file
+    if config.CSV_CHAT_ID and csv_success:
+
+        async with app:
+            await app.send_document(config.CSV_CHAT_ID, csv_filename,
+                    caption=header_message)
+
+    # Get winners from participants and create final message
+    csv_participants = get_csv_participants(csv_filename)
+    final_message, winner_photo = create_overall_ranking(csv_participants, header_message)
+
+    # send ranking message to given chat
+    if config.FINAL_MESSAGE_CHAT_ID:
+
+        if not final_message:
+            logging.warning("Can not create final message from CSV participants (file: %s)",
+                    str(csv_filename))
+            sys.exit()
+
+        async with app:
+            if winner_photo != "" and config.POST_WINNER_PHOTO:
+
+                # get photo id from winner photo url
+                if "https://t.me/c/" in winner_photo:
+                    msg_id = get_message_id_from_postlink(winner_photo)
+                    message = await app.get_messages(config.CHAT_ID, msg_id)
+                    if message:
+                        photo_id = get_photo_id_from_msg(message)
+                        if photo_id:
+                            winner_photo = photo_id
+
+                await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
+                        final_message, parse_mode=enums.ParseMode.MARKDOWN)
+
+            elif winner_photo != "" and not config.POST_WINNER_PHOTO:
+                await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
+                        parse_mode=enums.ParseMode.MARKDOWN)
+
+            else:
+                log_msg = ("Something went wrong!"
+                        " Can not find winner photo for final overall ranking message")
+                logging.warning(log_msg)
 
 def write_overall_csv(csvname):
     """Read single CSV files and write data to new overall CSV file"""
@@ -563,15 +562,15 @@ def get_csv_participants(csvfile):
         csv_dict = csv.DictReader(csvfile_single)
 
         for row in csv_dict:
-            duplicate = 0
+            duplicate = False
+
             # check if winner was already found
             for participant in csvparticipants:
                 if row['Username'] == participant[0]:
                     participant[3] += int(row['Count'])
                     participant[4] += int(row['Views'])
-                    duplicate = 1
+                    duplicate = True
 
-            # add participant to array
             if not duplicate:
                 # check if row was in desired timeframe
                 participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
@@ -579,6 +578,7 @@ def get_csv_participants(csvfile):
 
                 if ( (participant_difftime.days <= config.CONTEST_DAYS-1)
                         and not participant_difftime.days < 0 ):
+                    # add participant to array
                     csvparticipants.append([str(row['Username']),str(row['Postlink']),
                             str(row['Timestamp']), int(row['Count']),int(row['Views'])])
 
@@ -613,8 +613,8 @@ def get_csv_winners(csvparticipants):
         current_winner = get_csv_winner(csvparticipants)
         if current_winner:
             logging.debug("Add Winner %s %s",
-                    current_winner.author_signature,
-                    str(current_winner.reactions.reactions[0].count)
+                    current_winner[0],
+                    str(current_winner[3])
             )
             winners.append(current_winner)
         i += 1
@@ -685,5 +685,20 @@ def get_photo_id_from_msg(message):
         return message.photo.file_id
 
     return False
+
+def check_excludes(caption):
+    """Check for excludes in message caption"""
+    for exclude in config.EXCLUDE_PATTERN:
+        if exclude in str(caption):
+            return True
+
+    return False
+
+def build_postlink(participant):
+    """Builds link to given message"""
+    participant_id = str(participant["id"])
+    participant_chat_id = str(participant["chat_id"]).replace("-100","")
+    postlink = "https://t.me/c/" + participant_chat_id + "/" + participant_id
+    return postlink
 
 app.run(main())

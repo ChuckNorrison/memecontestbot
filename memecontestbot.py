@@ -10,14 +10,13 @@ Start bot to create a nice ranking.
 """
 
 from datetime import datetime
-from os import path, listdir, remove
+from os import path
 from argparse import ArgumentParser
 
 import sys
 import importlib
 import csv
 import re
-import locale
 import logging
 
 from pyrogram import Client, enums
@@ -31,10 +30,6 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-
-# set language based formatting
-# (check 'locales -a' or install with 'dpkg-reconfigure locales')
-locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
 app = Client("my_account")
 
@@ -217,8 +212,7 @@ async def main():
 
             if config.CREATE_CSV:
 
-                csv_file = write_rows_to_csv(
-                        "contest_" + str(config.CHAT_ID) + "_" + str(config.CONTEST_DAYS))
+                csv_file = write_rows_to_csv()
 
                 if config.CSV_CHAT_ID and csv_file:
                     await app.send_document(config.CSV_CHAT_ID, csv_file,
@@ -310,49 +304,17 @@ def build_ranking_caption():
 
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 
-    if not config.PARTITICPANTS_FROM_CSV:
-        header_message = (f"Top {config.CONTEST_MAX_RANKS} "
-                f"{header_contest_type} (Stand: {formatted_date})")
+    header_message = (f"Top {config.CONTEST_MAX_RANKS} "
+            f"{header_contest_type} (Stand: {formatted_date})")
 
-        if config.CONTEST_DAYS == 1:
-            header_message = "Rangliste 24-Stunden " + header_message
-        else:
-            header_message = f"Rangliste {config.CONTEST_DAYS}-Tage " + header_message
+    if config.CONTEST_DAYS == 1:
+        header_message = "Rangliste 24-Stunden " + header_message
     else:
-        # get the month and year for header message
-        ranking_time = contest_time.strftime("%Y-%m")
-        # get the months name for header_message
-        ranking_message = contest_time.strftime("%B")
-        header_message = f"Rangliste {ranking_message}"
-        header_message += (f" Top {config.CONTEST_MAX_RANKS} "
-                f"{header_contest_type} (Stand: {ranking_time} cache)")
+        header_message = f"Rangliste {config.CONTEST_DAYS}-Tage " + header_message
 
     return header_message
 
-def cleanup_csv_files(pattern):
-    """clean up CSV, only keep n csv files"""
-    filecount = 0
-
-    try:
-        max_files = int(config.CSV_CLEAN_UP)
-    except AttributeError:
-        return False
-
-    if config.CSV_CLEAN_UP:
-
-        files = listdir()
-        files = sorted(files, key = path.getmtime, reverse=True)
-        for filename in files:
-            if ( filename.endswith('.csv')
-                    and pattern in filename ):
-                # count files found
-                filecount += 1
-                if filecount >= max_files:
-                    remove(filename)
-
-    return filecount
-
-def write_rows_to_csv(pattern):
+def write_rows_to_csv():
     """Write participants data to CSV file"""
     csv_rows = []
 
@@ -363,20 +325,24 @@ def write_rows_to_csv(pattern):
             participant_postlink,
             participant["date"],
             participant["count"],
-            participant["views"]
+            participant["views"],
+            config.CONTEST_DAYS
         ])
 
-    cleanup_csv_files(pattern)
+    # open file an append rows
+    csv_file = "contest_" + str(config.CHAT_ID) + ".csv"
+    write_header = False
+    if not path.isfile(csv_file):
+        write_header = True
 
-    # CSV header and filename
-    csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views']
-    csv_file = ("contest_" + str(config.CHAT_ID) + "_"
-            + str(config.CONTEST_DAYS) + "d_" + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
-
-    # open file an write rows
-    with open(csv_file, mode='w', encoding="utf-8") as csvfile:
+    with open(csv_file, mode='a', encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(csv_fields)
+
+        # write header if file is new
+        if write_header:
+            csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views', 'Mode']
+            csvwriter.writerow(csv_fields)
+
         csvwriter.writerows(csv_rows)
 
     logging.info("CSV created: %s", csv_file)
@@ -475,22 +441,9 @@ async def create_csv_ranking():
 
     header_message = build_ranking_caption()
 
-    # collect contest data from CSV files and only winner photo from config.CHAT_ID
-    csv_filename = ("contest_" + str(config.CHAT_ID) + "_overall_"
-        + contest_time.strftime("%Y-%m-%d_%H-%M-%S") + ".csv")
-
-    # create overall CSV and ranking message
-    csv_success = write_overall_csv(csv_filename)
-
-    # send CSV file
-    if config.CSV_CHAT_ID and csv_success:
-
-        async with app:
-            await app.send_document(config.CSV_CHAT_ID, csv_filename,
-                    caption=header_message)
-
     # Get winners from participants and create final message
-    csv_participants = get_csv_participants(csv_filename)
+    csv_file = "contest_" + str(config.CHAT_ID) + ".csv"
+    csv_participants = get_csv_participants(csv_file)
     final_message, winner_photo = create_overall_ranking(csv_participants, header_message)
 
     # send ranking message to given chat
@@ -498,7 +451,7 @@ async def create_csv_ranking():
 
         if not final_message:
             logging.warning("Can not create final message from CSV participants (file: %s)",
-                    str(csv_filename))
+                    str(csv_file))
             sys.exit()
 
         async with app:
@@ -525,49 +478,9 @@ async def create_csv_ranking():
                         " Can not find winner photo for final overall ranking message")
                 logging.warning(log_msg)
 
-def write_overall_csv(csvname):
-    """Read single CSV files and write data to new overall CSV file"""
-    csv_overall_rows = []
-    csv_header = 0
-    check = False
-
-    for filename in listdir():
-        if ( filename.endswith('.csv')
-                and not csvname in filename
-                and not "_overall_" in filename ):
-
-            logging.info("Collect data from CSV: %s", filename)
-
-            with open(filename, mode = 'r', newline='', encoding="utf-8") as csvfile:
-                csvreader = csv.reader(csvfile, delimiter=',')
-                for row in csvreader:
-                    # skip header if already written
-                    if "Username" in row and csv_header:
-                        continue
-
-                    csv_header = 1
-
-                    # remember csv data found
-                    check = True
-                    try:
-                        csv_overall_rows.append([str(row[0]), str(row[1]),
-                                str(row[2]), int(row[3]), int(row[4])])
-                    except ValueError:
-                        # add header
-                        csv_overall_rows.append(row)
-
-    # clean up
-    if path.exists(csvname):
-        remove(csvname)
-
-    with open(csvname, mode='w', encoding="utf-8") as csvfile_overall:
-        csvwriter = csv.writer(csvfile_overall)
-        csvwriter.writerows(csv_overall_rows)
-
-    return check
-
 def get_csv_participants(csvfile):
     """Collect participants from CSV file"""
+
     csvparticipants = []
     with open(csvfile, mode='r', encoding="utf-8") as csvfile_single:
 

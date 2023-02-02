@@ -86,7 +86,6 @@ except ModuleNotFoundError as ex:
     sys.exit()
 
 # global vars
-participants = []
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
 async def main():
@@ -100,6 +99,7 @@ async def main():
         sys.exit()
 
     header_message = build_ranking_caption()
+    participants = []
 
     async with app:
         async for message in app.get_chat_history(config.CHAT_ID):
@@ -212,13 +212,13 @@ async def main():
 
             if config.CREATE_CSV:
 
-                csv_file = write_rows_to_csv()
+                csv_file = write_rows_to_csv(participants)
 
                 if config.CSV_CHAT_ID and csv_file:
                     await app.send_document(config.CSV_CHAT_ID, csv_file,
                             caption=header_message)
 
-            final_message, winner_photo = create_ranking(header_message)
+            final_message, winner_photo = create_ranking(participants, header_message)
 
             if config.FINAL_MESSAGE_CHAT_ID:
 
@@ -243,9 +243,8 @@ def create_participant(message, author):
         message_counter = 0
 
     participant = {
-        "count": message_counter,
-        "views": message.views,
-        "caption": message.caption,
+        "count": int(message_counter),
+        "views": int(message.views),
         "photo_id": message.photo.file_id,
         "author": author,
         "date": str(message.date),
@@ -258,9 +257,8 @@ def create_participant(message, author):
 def update_participant(participant, message):
     """Update existent participant without stats"""
     participant["photo_id"] = message.photo.file_id
-    participant["caption"] = message.caption
-    participant["id"] = message.id
     participant["date"] = str(message.date)
+    participant["id"] = message.id
 
     return participant
 
@@ -314,7 +312,7 @@ def build_ranking_caption():
 
     return header_message
 
-def write_rows_to_csv():
+def write_rows_to_csv(participants):
     """Write participants data to CSV file"""
     csv_rows = []
 
@@ -342,13 +340,14 @@ def write_rows_to_csv():
         if write_header:
             csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views', 'Mode']
             csvwriter.writerow(csv_fields)
+            logging.info("CSV created: %s", csv_file)
 
         csvwriter.writerows(csv_rows)
+        logging.info("CSV update: %s", csv_file)
 
-    logging.info("CSV created: %s", csv_file)
     return csv_file
 
-def get_winner():
+def get_winner(participants):
     """Extracts the best post from participants and returns the winner"""
     best_count = 0
     winner = []
@@ -356,36 +355,40 @@ def get_winner():
 
     i = 0
     for participant in participants:
+
         if participant["count"] >= best_count:
             best_count = participant["count"]
             winner = participant
             winner_id = i
+
         i += 1
 
     # remove winner from participants array
     if winner_id != -1 and len(participants) >= 0:
         participants.pop(winner_id)
 
-    return winner
+    return winner, participants
 
-def get_winners():
+def get_winners(participants):
     """Get all winners and return winners array"""
     winners = []
 
     i = 1
     while i <= config.CONTEST_MAX_RANKS:
-        current_winner = get_winner()
+        current_winner, participants = get_winner(participants)
+
         if current_winner:
             winners.append(current_winner)
+
         i += 1
 
     return winners
 
-def create_ranking(header_message):
+def create_ranking(participants, header_message):
     """Build the final ranking message"""
 
     # get winners
-    winners = get_winners()
+    winners = get_winners(participants)
 
     # init vars
     rank = 0
@@ -405,7 +408,12 @@ def create_ranking(header_message):
 
         # set rank 1 winner photo
         if rank == 1 and winner_photo == "":
-            winner_photo = winner["photo_id"]
+            try:
+                # chat mode
+                winner_photo = winner["photo_id"]
+            except KeyError:
+                # csv mode
+                winner_photo = winner["postlink"]
 
         # author prefix for telegram handle
         if not config.SIGN_MESSAGES:
@@ -415,7 +423,13 @@ def create_ranking(header_message):
 
         # add post link
         if config.POST_LINK:
-            winner_postlink = build_postlink(winner)
+            try:
+                # csv mode
+                winner_postlink = winner["postlink"]
+            except KeyError:
+                # chat mode
+                winner_postlink = build_postlink(winner)
+
             winner_count = f"[{winner_count}]({winner_postlink})"
 
         final_message = final_message + "#" + str(rank) \
@@ -428,9 +442,10 @@ def create_ranking(header_message):
             break
 
     final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
-    logging.info(final_message)
+    logging.info("\n%s", final_message)
 
     return final_message, winner_photo
+
 
 ###########################
 # CSV based ranking methods
@@ -443,8 +458,10 @@ async def create_csv_ranking():
 
     # Get winners from participants and create final message
     csv_file = "contest_" + str(config.CHAT_ID) + ".csv"
+
     csv_participants = get_csv_participants(csv_file)
-    final_message, winner_photo = create_overall_ranking(csv_participants, header_message)
+
+    final_message, winner_photo = create_ranking(csv_participants, header_message)
 
     # send ranking message to given chat
     if config.FINAL_MESSAGE_CHAT_ID:
@@ -478,10 +495,23 @@ async def create_csv_ranking():
                         " Can not find winner photo for final overall ranking message")
                 logging.warning(log_msg)
 
+def create_csv_participant(csv_row):
+    """Create a participant dict from CSV data"""
+
+    participant = {
+        "author": csv_row["Username"],
+        "postlink": csv_row["Postlink"],
+        "date": str(csv_row["Timestamp"]),
+        "count": int(csv_row["Count"]),
+        "views": int(csv_row["Views"])
+    }
+
+    return participant
+
 def get_csv_participants(csvfile):
     """Collect participants from CSV file"""
 
-    csvparticipants = []
+    csv_participants = []
     with open(csvfile, mode='r', encoding="utf-8") as csvfile_single:
 
         csv_dict = csv.DictReader(csvfile_single)
@@ -490,16 +520,16 @@ def get_csv_participants(csvfile):
             duplicate = False
 
             # check if winner was already found
-            for participant in csvparticipants:
+            for participant in csv_participants:
 
                 # check for same post in different CSV files
-                if row['Postlink'] == participant[1]:
+                if row['Postlink'] == participant["postlink"]:
                     duplicate = True
 
                 # check if User already found and add stats
-                elif row['Username'] == participant[0]:
-                    participant[3] += int(row['Count'])
-                    participant[4] += int(row['Views'])
+                elif row['Username'] == participant["author"]:
+                    participant["count"] += int(row['Count'])
+                    participant["views"] += int(row['Views'])
                     duplicate = True
 
             if not duplicate:
@@ -510,96 +540,11 @@ def get_csv_participants(csvfile):
                 if ( (participant_difftime.days <= config.CONTEST_DAYS-1)
                         and not participant_difftime.days < 0 ):
                     # add participant to array
-                    csvparticipants.append([str(row['Username']),str(row['Postlink']),
-                            str(row['Timestamp']), int(row['Count']),int(row['Views'])])
+                    csv_participant = create_csv_participant(row)
+                    csv_participants.append(csv_participant)
 
-    return csvparticipants
+    return csv_participants
 
-def get_csv_winner(csvparticipants):
-    """Extracts the best post from participants and returns the winner"""
-    best_count = 0
-    winner = []
-    winner_id = -1
-
-    i = 0
-    for participant in csvparticipants:
-        if participant[3] >= best_count:
-            best_count = participant[3]
-            winner = participant
-            winner_id = i
-        i += 1
-
-    # remove winner from participants array
-    if winner_id != -1 and len(csvparticipants) >= 0:
-        csvparticipants.pop(winner_id)
-
-    return winner
-
-def get_csv_winners(csvparticipants):
-    """Get all winners and return winners array"""
-    winners = []
-
-    i = 1
-    while i <= config.CONTEST_MAX_RANKS:
-        current_winner = get_csv_winner(csvparticipants)
-        if current_winner:
-            logging.debug("Add Winner %s %s",
-                    current_winner[0],
-                    str(current_winner[3])
-            )
-            winners.append(current_winner)
-        i += 1
-
-    return winners
-
-def create_overall_ranking(csvparticipants, header_message):
-    """Build the final ranking message based on a winners array"""
-    winner_photo = ""
-
-    # get winners
-    winners = get_csv_winners(csvparticipants)
-
-    # init vars
-    rank = 0
-    last_count = 0
-    final_message = ""
-
-    i = 1
-    for winner in winners:
-        winner_count = winner[3]
-
-        # update rank, same rank with same count
-        if last_count != winner_count:
-            rank += 1
-        last_count = winner_count
-
-        # set rank 1 winner photo as message link
-        if rank == 1 and winner_photo == "":
-            winner_photo = winner[1]
-
-        if not config.SIGN_MESSAGES:
-            winner_display_name = "@" + winner[0]
-        else:
-            winner_display_name = winner[0]
-
-        # add post link
-        if config.POST_LINK:
-            winner_postlink = winner[1]
-            winner_count = f"[{winner_count}]({winner_postlink})"
-
-        final_message = final_message + "#" + str(rank) \
-                + " " + winner_display_name \
-                + " " + str(winner_count) \
-                + " 🏆 \n"
-
-        i += 1
-        if i > config.CONTEST_MAX_RANKS:
-            break
-
-    final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
-    logging.info(final_message)
-
-    return final_message, winner_photo
 
 ##################
 # Common methods

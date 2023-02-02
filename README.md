@@ -12,8 +12,9 @@ Daily, weekly or monthly ranking messages for your Telegram Channel or Group.
 - Configure how much winners will get into the final ranking message (`CONTEST_MAX_RANKS`)
 - Exclude message posts from analyzing (`EXCLUDE_PATTERN`)
 - Enable CSV file creation, to log all message posts found with amount of reactions and views count (`CREATE_CSV`)
-- Meme or Author based ranking (`RANK_MEMES`)
+- Photo or Author based ranking (`RANK_MEMES`)
 - Collect Photos from a Group Chat (`CHAT_ID`) and post them to another Chat (`POST_PARTICIPANTS_CHAT_ID`)
+- Use `PARTITICPANTS_FROM_CSV` to create ranking from CSV data instead of chat data
 
 ## Setup Telegram App
 The first step requires you to obtain a valid Telegram API key (api_id and api_hash pair):

@@ -30,6 +30,7 @@ The Bot was developed and tested with Python 3.8+ on Debian based distro.
 - `git clone https://github.com/ChuckNorrison/memecontestbot`
 - `cd memecontestbot`
 - Edit the file `config.py` and insert your desired telegram chat id or public channel name in `CHAT_ID`)
+- Edit the file `config_api.py` and insert your API ID and API HASH
 
 ### Install Python 3.x and module dependencies
 - `sudo apt install python3 python3-pip`
@@ -40,7 +41,7 @@ If you already run some python projects, keep in mind to use a [venv](https://do
 ## Usage
 Start the bot with `python3 memecontestbot.py`. 
 
-On first start it will ask for your api_id and api_hash and your corresponding phone number to act as userbot. The bot will use your telegram account and so it will be visible with your telegram user. Delete the file `my_account.session`, to reset api_id and api_hash.
+On first start it will ask for your corresponding phone number to act as userbot. The bot will use your telegram account and so it will be visible with your telegram user. Delete the file `my_account.session`, to reset api_id and api_hash.
 
 Chats should be configured to only accept a single reaction emoji (multiple reaction emojis are not supported yet).
 

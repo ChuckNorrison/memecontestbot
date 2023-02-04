@@ -31,8 +31,6 @@ logging.basicConfig(
     ]
 )
 
-app = Client("my_account")
-
 # check config arguments
 parser = ArgumentParser()
 parser.add_argument("-c", "--config", dest="CONFIGFILE",
@@ -84,6 +82,24 @@ except ModuleNotFoundError as ex:
     logging.error("Import '%s' failed!", CONFIG)
     logging.error(ex)
     sys.exit()
+
+API_FILE = "config_api.py"
+try:
+    api = importlib.import_module(API_FILE.replace('.py',''))
+    TESTAPI = ""
+    TESTAPI += '\nID: ' + str(api.ID) + '\n'
+    TESTAPI += 'HASH: ' + str(api.HASH)
+except AttributeError as ex:
+    logging.error("Read api file '%s' failed!", API_FILE)
+    logging.error(TESTCONFIG)
+    logging.error(ex)
+    sys.exit()
+except ModuleNotFoundError as ex:
+    logging.error("Import'%s' failed!", API_FILE)
+    logging.error(ex)
+    sys.exit()   
+
+app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 
 # global vars
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
@@ -238,13 +254,18 @@ async def main():
 def create_participant(message, author):
     """Return new participant as dict from message object"""
     try:
-        message_counter = message.reactions.reactions[0].count
-    except AttributeError:
+        message_counter = int(message.reactions.reactions[0].count)
+    except:
         message_counter = 0
 
+    try:
+        message_views = int(message.views)
+    except:
+        message_views = 0
+
     participant = {
-        "count": int(message_counter),
-        "views": int(message.views),
+        "count": message_counter,
+        "views": message_views,
         "photo_id": message.photo.file_id,
         "author": author,
         "date": str(message.date),
@@ -252,6 +273,7 @@ def create_participant(message, author):
         "chat_id": message.chat.id
     }
 
+    logging.info(participant)
     return participant
 
 def update_participant(participant, message):

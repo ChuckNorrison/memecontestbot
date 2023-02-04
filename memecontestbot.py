@@ -159,6 +159,16 @@ async def main():
                     if participant["author"] == message_author:
                         duplicate = True
 
+                        if config.POST_PARTICIPANTS_CHAT_ID:
+                            participant_time = datetime.strptime(
+                                    str(participant["date"]),
+                                    "%Y-%m-%d %H:%M:%S")
+
+                            if participant_time < message_time:
+                                # remember only the newest meme
+                                participant = create_participant(message, message_author)
+                            continue
+
                         if config.RANK_MEMES:
                             # already exist in participants array,
                             # only one post allowed (prefer best)
@@ -191,6 +201,9 @@ async def main():
                         duplicate = True
 
                 if not duplicate:
+                    # Ranking mode: append to participants array to create ranking
+                    new_participant = create_participant(message, message_author)
+                    participants.append(new_participant)
 
                     if config.POST_PARTICIPANTS_CHAT_ID:
                         # Repost mode: repost message to the given chat
@@ -205,10 +218,6 @@ async def main():
                             await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
                                     message.photo.file_id,
                                     message_author, parse_mode=enums.ParseMode.MARKDOWN)
-                    else:
-                        # Ranking mode: append to participants array to create ranking
-                        new_participant = create_participant(message, message_author)
-                        participants.append(new_participant)
 
             elif message_difftime.days < 0:
                 # message newer than expected or excluded, keep searching messages
@@ -249,13 +258,15 @@ async def main():
 def create_participant(message, author):
     """Return new participant as dict from message object"""
 
-    try:
-        message_counter = int(message.reactions.reactions[0].count)
-        message_views = int(message.views)
-    except AttributeError as ex_attr:
-        logging.error(ex_attr)
+    if not config.POST_PARTICIPANTS_CHAT_ID:
+        try:
+            message_counter = int(message.reactions.reactions[0].count)
+            message_views = int(message.views)
+        except AttributeError as ex_attr:
+            logging.error(ex_attr)
+    else:
         message_counter = 0
-        message_views = 0
+        message_views = 0  
 
     participant = {
         "count": message_counter,

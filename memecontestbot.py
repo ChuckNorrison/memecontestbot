@@ -258,15 +258,16 @@ async def main():
 def create_participant(message, author):
     """Return new participant as dict from message object"""
 
+    # initialize defaults
+    message_counter = 0
+    message_views = 0
+
     if not config.POST_PARTICIPANTS_CHAT_ID:
         try:
             message_counter = int(message.reactions.reactions[0].count)
             message_views = int(message.views)
         except AttributeError as ex_attr:
             logging.error(ex_attr)
-    else:
-        message_counter = 0
-        message_views = 0  
 
     participant = {
         "count": message_counter,

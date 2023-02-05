@@ -152,6 +152,11 @@ async def main():
                         # skip this message for missing reactions
                         continue
 
+                # no views in groups
+                message_views = 0
+                if message.views:
+                    message_views = message.views
+
                 # check if participant was already found
                 duplicate = False
                 highest_count = 0
@@ -178,8 +183,8 @@ async def main():
                                 participant = update_participant(participant, message)
 
                                 # update stats
-                                participant["views"] = message.views
                                 participant["count"] = message_reactions
+                                participant["views"] = message_views                                
                             else:
                                 # nothing to do, keep this
                                 continue
@@ -196,7 +201,7 @@ async def main():
 
                             # update reaction counter and views, sum up
                             participant["count"] += message_reactions
-                            participant["views"] += message.views
+                            participant["views"] += message_views
 
                     elif message_author == "None":
                         duplicate = True
@@ -269,6 +274,8 @@ def create_participant(message, author):
             message_views = int(message.views)
         except AttributeError as ex_attr:
             logging.error(ex_attr)
+        except TypeError as ex_type:
+            logging.error(ex_type)
 
     participant = {
         "count": message_counter,

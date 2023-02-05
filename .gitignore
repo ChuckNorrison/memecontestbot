@@ -130,3 +130,4 @@ dmypy.json
 *.session
 *.csv
 .~lock.contest.csv#
+config_api.py

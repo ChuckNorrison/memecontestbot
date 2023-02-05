@@ -26,7 +26,6 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s %(message)s',
     level=logging.INFO,
     handlers=[
-        logging.FileHandler("memecontestbot.log"),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -102,10 +101,12 @@ except ModuleNotFoundError as ex:
 app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 
 # global vars
+VERSION_NUMBER = "v1.0"
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
 async def main():
     """This function will run the bot"""
+    logging.info("Start meme contest bot version %s", VERSION_NUMBER)
 
     if config.PARTITICPANTS_FROM_CSV:
         # create a ranking message from CSV data

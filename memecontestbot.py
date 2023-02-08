@@ -21,6 +21,8 @@ import logging
 
 from pyrogram import Client, enums
 
+VERSION_NUMBER = "v1.0.1"
+
 # configure logging
 logging.basicConfig(
     format='%(asctime)s %(levelname)s %(message)s',
@@ -101,7 +103,6 @@ except ModuleNotFoundError as ex:
 app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 
 # global vars
-VERSION_NUMBER = "v1.0"
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 
 async def main():
@@ -184,7 +185,7 @@ async def main():
 
                                 # update stats
                                 participant["count"] = message_reactions
-                                participant["views"] = message_views                                
+                                participant["views"] = message_views
                             else:
                                 # nothing to do, keep this
                                 continue
@@ -212,18 +213,28 @@ async def main():
                     participants.append(new_participant)
 
                     if config.POST_PARTICIPANTS_CHAT_ID:
+
                         # Repost mode: repost message to the given chat
                         if not config.SIGN_MESSAGES:
                             message_author = "@" + message_author
-                        logging.info("Repost %s (message id: %s, photo id: %s)",
+                        logging.info("Repost %s (message id: %s)",
                                 message_author,
-                                message.id,
-                                message.photo.file_id[-10:])
+                                message.id
+                        )
+
+                        # extract hashtag from caption
+                        message_hashtags = get_caption_pattern(message.caption, "#")
+
+                        if message_hashtags:
+                            photo_caption = message_author + "\n\n" + message_hashtags
+                            logging.info("Hashtags: %s", message_hashtags)
+                        else:
+                            photo_caption = message_author
 
                         if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
                             await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
                                     message.photo.file_id,
-                                    message_author, parse_mode=enums.ParseMode.MARKDOWN)
+                                    photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
 
             elif message_difftime.days < 0:
                 # message newer than expected or excluded, keep searching messages
@@ -297,20 +308,44 @@ def update_participant(participant, message):
 
     return participant
 
+def get_caption_pattern(caption, pattern, count = 1):
+    """Return findings from message caption as string"""
+
+    caption_findings = []
+    caption_new = False
+
+    if pattern in str(caption):
+        message_caption_array = caption.split()
+        i = 1
+        for caption_word in message_caption_array:
+            if caption_word.startswith(pattern):
+                # make sure nobody can inject commands here
+                if count >= i:
+                    caption_findings.append(re.sub(r"[^a-zA-Z0-9\_]", "", caption_word))
+                    i += 1
+
+        # add finding to new caption string
+        for finding in caption_findings:
+            if finding == "":
+                continue
+
+            if not caption_new:
+                caption_new = pattern + finding
+            else:
+                caption_new = caption_new + " " + pattern + finding
+
+    return caption_new
+
 def get_author(message):
     """Return author from message object"""
     message_author = False
 
     if not config.SIGN_MESSAGES:
-        # force to set author from caption
-        # and not from channel signature
-        if "@" in str(message.caption):
-            # extract telegram handle from caption
-            message_caption_array = message.caption.split()
-            for caption_word in message_caption_array:
-                if caption_word.startswith("@"):
-                    # make sure nobody can inject commands here
-                    message_author = re.sub(r"[^a-zA-Z0-9\_]", "", caption_word)
+        # # force to set author from caption
+        # # and not from channel signature
+        message_author = get_caption_pattern(message.caption, "@")
+        if message_author:
+            message_author = message_author.replace("@","")
 
         # filter bad authors
         if ( message_author

@@ -292,6 +292,7 @@ def create_participant(message, author):
         "count": message_counter,
         "views": message_views,
         "photo_id": message.photo.file_id,
+        "unique_id": message.photo.file_unique_id,
         "author": author,
         "date": str(message.date),
         "id": message.id,
@@ -303,6 +304,7 @@ def create_participant(message, author):
 def update_participant(participant, message):
     """Update existent participant without stats"""
     participant["photo_id"] = message.photo.file_id
+    participant["unique_id"] = message.photo.file_unique_id
     participant["date"] = str(message.date)
     participant["id"] = message.id
 
@@ -394,7 +396,8 @@ def write_rows_to_csv(participants):
             participant["date"],
             participant["count"],
             participant["views"],
-            config.CONTEST_DAYS
+            config.CONTEST_DAYS,
+            participant["unique_id"]
         ])
 
     # open file an append rows
@@ -408,7 +411,16 @@ def write_rows_to_csv(participants):
 
         # write header if file is new
         if write_header:
-            csv_fields = ['Username', 'Postlink', 'Timestamp', 'Count', 'Views', 'Mode']
+            csv_fields = [
+                'Username',
+                'Postlink',
+                'Timestamp',
+                'Count',
+                'Views',
+                'Mode',
+                'Unique ID'
+            ]
+
             csvwriter.writerow(csv_fields)
             logging.info("CSV created: %s", csv_file)
 

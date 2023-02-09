@@ -227,6 +227,7 @@ async def main():
                     if config.POST_PARTICIPANTS_CHAT_ID:
 
                         # check unique file id
+                        unique_check = False
                         for unique_id in unique_ids:
                             if unique_id[1] == message.photo.file_unique_id:
 
@@ -245,7 +246,12 @@ async def main():
                                             reply_to_message_id=message.id,
                                             parse_mode=enums.ParseMode.MARKDOWN)
 
-                                continue
+                                unique_check = True
+                                break
+
+                        # skip this message if it is a repost
+                        if unique_check:
+                            continue
 
                         # Repost mode: repost message to the given chat
                         if not config.SIGN_MESSAGES:

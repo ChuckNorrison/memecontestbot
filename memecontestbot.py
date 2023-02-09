@@ -104,6 +104,14 @@ app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 
 # global vars
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
+contest_year = contest_time.strftime("%Y")
+CSV_FILE = (
+    "contest_"
+    + str(config.CHAT_ID)
+    + "_"
+    + contest_year
+    + ".csv"
+)
 
 async def main():
     """This function will run the bot"""
@@ -118,6 +126,10 @@ async def main():
 
     header_message = build_ranking_caption()
     participants = []
+
+    if config.POST_PARTICIPANTS_CHAT_ID:
+        # get all unique file ids from CSV
+        unique_ids = get_csv_unique_ids()
 
     async with app:
         async for message in app.get_chat_history(config.CHAT_ID):
@@ -214,10 +226,31 @@ async def main():
 
                     if config.POST_PARTICIPANTS_CHAT_ID:
 
+                        # check unique file id
+                        for unique_id in unique_ids:
+                            if unique_id[1] == message.photo.file_unique_id:
+
+                                # send repost message
+                                repost_msg = (
+                                    "Dieses Meme ist bereits bekannt, "
+                                    + f"[schau hier]({unique_id[0]})"
+                                )
+                                logging.info("%s (reply to msg id %s)",
+                                    repost_msg,
+                                    str(message.id)
+                                )
+
+                                if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
+                                    await app.send_message(config.CHAT_ID, repost_msg,
+                                            reply_to_message_id=message.id,
+                                            parse_mode=enums.ParseMode.MARKDOWN)
+
+                                continue
+
                         # Repost mode: repost message to the given chat
                         if not config.SIGN_MESSAGES:
                             message_author = "@" + message_author
-                        logging.info("Repost %s (message id: %s)",
+                        logging.info("Collect %s (message id: %s)",
                                 message_author,
                                 message.id
                         )
@@ -249,10 +282,10 @@ async def main():
 
             if config.CREATE_CSV:
 
-                csv_file = write_rows_to_csv(participants)
+                write_rows_to_csv(participants)
 
-                if config.CSV_CHAT_ID and csv_file:
-                    await app.send_document(config.CSV_CHAT_ID, csv_file,
+                if config.CSV_CHAT_ID and CSV_FILE:
+                    await app.send_document(config.CSV_CHAT_ID, CSV_FILE,
                             caption=header_message)
 
             final_message, winner_photo = create_ranking(participants, header_message)
@@ -401,12 +434,11 @@ def write_rows_to_csv(participants):
         ])
 
     # open file an append rows
-    csv_file = "contest_" + str(config.CHAT_ID) + ".csv"
     write_header = False
-    if not path.isfile(csv_file):
+    if not path.isfile(CSV_FILE):
         write_header = True
 
-    with open(csv_file, mode='a', encoding="utf-8") as csvfile:
+    with open(CSV_FILE, mode='a', encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile)
 
         # write header if file is new
@@ -422,12 +454,12 @@ def write_rows_to_csv(participants):
             ]
 
             csvwriter.writerow(csv_fields)
-            logging.info("CSV created: %s", csv_file)
+            logging.info("CSV created: %s", CSV_FILE)
 
         csvwriter.writerows(csv_rows)
-        logging.info("CSV update: %s", csv_file)
+        logging.info("CSV update: %s", CSV_FILE)
 
-    return csv_file
+    return CSV_FILE
 
 def get_winner(participants):
     """Extracts the best post from participants and returns the winner"""
@@ -539,9 +571,7 @@ async def create_csv_ranking():
     header_message = build_ranking_caption()
 
     # Get winners from participants and create final message
-    csv_file = "contest_" + str(config.CHAT_ID) + ".csv"
-
-    csv_participants = get_csv_participants(csv_file)
+    csv_participants = get_csv_participants()
 
     final_message, winner_photo = create_ranking(csv_participants, header_message)
 
@@ -550,7 +580,7 @@ async def create_csv_ranking():
 
         if not final_message:
             logging.warning("Can not create final message from CSV participants (file: %s)",
-                    str(csv_file))
+                    str(CSV_FILE))
             sys.exit()
 
         async with app:
@@ -590,11 +620,11 @@ def create_csv_participant(csv_row):
 
     return participant
 
-def get_csv_participants(csvfile):
+def get_csv_participants():
     """Collect participants from CSV file"""
 
     csv_participants = []
-    with open(csvfile, mode='r', encoding="utf-8") as csvfile_single:
+    with open(CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
 
         csv_dict = csv.DictReader(csvfile_single)
 
@@ -626,6 +656,26 @@ def get_csv_participants(csvfile):
                     csv_participants.append(csv_participant)
 
     return csv_participants
+
+def get_csv_unique_ids():
+    """Collect unique file ids from CSV file"""
+    csv_unique_ids = []
+
+    if path.isfile(CSV_FILE):
+
+        with open(CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
+
+            csv_dict = csv.DictReader(csvfile_single)
+
+            for row in csv_dict:
+                try:
+                    if row['Unique ID'] != "":
+                        csv_unique_ids.append([row['Postlink'], row['Unique ID'],])
+                except KeyError:
+                    logging.info("Unique ID is missing in CSV. Skip repost check!")
+                    continue
+
+    return csv_unique_ids
 
 
 ##################

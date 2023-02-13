@@ -7,14 +7,15 @@ The Bot can be set as cron to post a ranking automatically.
 Daily, weekly or monthly ranking messages for your Telegram Channel or Group.
 
 ## Features
-- On execute, it retrieves message posts of a given telegram chat (`CHAT_ID`) and period (`CONTEST_DAYS`). It analyze reactions to create a ranking.
+- On execute, it walks through chat history of a given telegram `CHAT_ID` and period of `CONTEST_DAYS`. It analyze reactions to create a ranking.
 - Decide whether to post the final ranking message in a given chat or not (`FINAL_MESSAGE_CHAT_ID`)
-- Configure how much winners will get into the final ranking message (`CONTEST_MAX_RANKS`)
-- Exclude message posts from analyzing (`EXCLUDE_PATTERN`)
-- Enable CSV file creation, to log all message posts found with amount of reactions and views count (`CREATE_CSV`)
-- Photo or Author based ranking (`RANK_MEMES`)
-- Collect Photos from a Group Chat (`CHAT_ID`) and post them to another Chat (`POST_PARTICIPANTS_CHAT_ID`)
+- Set a number as `CONTEST_MAX_RANKS` to limit winners count for the final ranking message
+- Set `EXCLUDE_PATTERN` to exclude message posts from analyzing.
+- Enable `CREATE_CSV`, to log all message posts found with amount of reactions and views count into a CSV file.
+- Enable `RANK_MEMES` to collect votes based on Memes. Disable for Author based ranking, so all votes gets added.
+- Collect Photos from a Group `CHAT_ID` and post them to another Chat given as `POST_PARTICIPANTS_CHAT_ID`
 - Use `PARTITICPANTS_FROM_CSV` to create ranking from CSV data instead of chat data
+- Enable `CONTEST_POLL` to create a ranking with poll and vote from numbered images
 
 ## Setup Telegram App
 The first step requires you to obtain a valid Telegram API key (api_id and api_hash pair):

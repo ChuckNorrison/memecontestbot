@@ -9,8 +9,8 @@ Usage:
 Start bot to create a nice ranking.
 """
 
-from datetime import datetime
-from os import path
+from datetime import datetime, timedelta
+from os import path, makedirs
 from argparse import ArgumentParser
 
 import sys
@@ -18,10 +18,14 @@ import importlib
 import csv
 import re
 import logging
+import copy
 
 from pyrogram import Client, enums
+from pyrogram.types import InputMediaPhoto
 
-VERSION_NUMBER = "v1.0.1"
+from PIL import Image, ImageDraw, ImageFont
+
+VERSION_NUMBER = "v1.1.0"
 
 # configure logging
 logging.basicConfig(
@@ -253,7 +257,7 @@ async def main():
                         if unique_check:
                             continue
 
-                        # Repost mode: repost message to the given chat
+                        # Collect mode: post message to given chat
                         if not config.SIGN_MESSAGES:
                             message_author = "@" + message_author
                         logging.info("Collect %s (message id: %s)",
@@ -293,6 +297,16 @@ async def main():
                 if config.CSV_CHAT_ID and CSV_FILE:
                     await app.send_document(config.CSV_CHAT_ID, CSV_FILE,
                             caption=header_message)
+
+            try:
+                if config.CONTEST_POLL:
+                    # Poll mode: Create a voting poll for winners
+                    await create_poll(participants)
+
+                    sys.exit()
+
+            except AttributeError:
+                logging.warning("Config CONTEST_POLL is missing!")
 
             final_message, winner_photo = create_ranking(participants, header_message)
 
@@ -504,7 +518,7 @@ def get_winners(participants):
 
     return winners
 
-def create_ranking(participants, header_message):
+def create_ranking(participants, header_message, unique_ranks = False):
     """Build the final ranking message"""
 
     # get winners
@@ -521,10 +535,15 @@ def create_ranking(participants, header_message):
 
         winner_count = winner["count"]
 
-        # update rank, same rank with same count
-        if last_count != winner_count:
+        # update rank
+        if not unique_ranks:
+            # same rank with same count
+            if last_count != winner_count:
+                rank += 1
+            last_count = winner_count
+        else:
+            # unique ranks
             rank += 1
-        last_count = winner_count
 
         # set rank 1 winner photo
         if rank == 1 and winner_photo == "":
@@ -566,6 +585,108 @@ def create_ranking(participants, header_message):
 
     return final_message, winner_photo
 
+
+###########################
+# Poll mode methods
+###########################
+
+async def create_poll(participants):
+    '''Create a poll to vote a winner from'''
+
+    # get winners and do not touch the main participants array
+    media_participants = copy.deepcopy(participants)
+    winners = get_winners(media_participants)
+
+    # create the ranking message
+    header_message = build_ranking_caption()
+    final_message, _winner_photo = create_ranking(participants, header_message, True)
+
+    # create numbered photos from winners
+    media_group = []
+    poll_answers = []
+    rank = 1
+    for winner in winners:
+
+        await create_numbered_photo(winner["photo_id"], rank)
+
+        poll_answers.append(f"{rank}. Meme")
+
+        if rank == 1:
+            media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg", final_message))
+        else:
+            media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg"))
+
+        rank += 1
+        if rank > config.CONTEST_MAX_RANKS:
+            break
+
+    if config.FINAL_MESSAGE_CHAT_ID:
+
+        media_group_message = await app.send_media_group(
+            config.FINAL_MESSAGE_CHAT_ID,
+            media_group
+        )
+
+        # create question message
+        poll_time = build_timeframe(contest_time, config.CONTEST_DAYS)
+        poll_question = (
+            "Die Wahl zum Meme der Woche\n"
+            f"vom {poll_time} (24h Abstimmung)"
+        )
+
+        await app.send_poll(
+            config.FINAL_MESSAGE_CHAT_ID,
+            poll_question,
+            poll_answers,
+            reply_to_message_id=media_group_message[0].id
+        )
+
+async def create_numbered_photo(photo_id, number):
+    '''Returns a photo with a watermark as number'''
+
+    media = await app.download_media(photo_id, in_memory=True)
+
+    if media:
+        #Create an Image Object from an Image
+        image = Image.open(media)
+
+        # scale down the image
+        maxsize = (500, 500)
+        image.thumbnail(maxsize, Image.ANTIALIAS)
+
+        # get image size
+        width, height = image.size
+
+        # create a draw object from image
+        draw = ImageDraw.Draw(image)
+
+        # define the font
+        font = ImageFont.truetype('arial.ttf', 136)
+        textwidth, textheight = draw.textsize(str(number), font)
+
+        # calculate the x,y coordinates of the text
+        dim_x = width/2 - textwidth/2
+        dim_y = height/2 - textheight/2
+
+        # draw the number
+        draw.text(
+            (dim_x, dim_y),
+            str(number),
+            align="center",
+            font=font,
+            fill="#f27600",
+            stroke_width=4,
+            stroke_fill='black'
+        )
+
+        # DEBUG
+        # image.show()
+
+        #Save watermarked image
+        if not path.exists('images'):
+            makedirs('images')
+
+        image.save('images/image_' + str(number) + '.jpg')
 
 ###########################
 # CSV based ranking methods
@@ -714,5 +835,25 @@ def build_postlink(participant):
     participant_chat_id = str(participant["chat_id"]).replace("-100","")
     postlink = "https://t.me/c/" + participant_chat_id + "/" + participant_id
     return postlink
+
+def build_timeframe(current_time, days):
+    '''Calculate start and end date and return string'''
+    date_list = [current_time - timedelta(days=x) for x in range(days)]
+    date_start = ""
+    date_end = ""
+    date_message = ""
+
+    i = 0
+    for date in reversed(date_list):
+        if i == 0:
+            date_start = date.strftime("%d.%m.%Y")
+        elif i == len(date_list)-1:
+            date_end = date.strftime("%d.%m.%Y")
+        i += 1
+
+    if date_start != "" and date_end != "":
+        date_message = f"{date_start} - {date_end}"
+
+    return date_message
 
 app.run(main())

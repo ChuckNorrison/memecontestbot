@@ -390,7 +390,7 @@ def get_caption_pattern(caption, pattern, count = 1):
             if caption_word.startswith(pattern):
                 # make sure nobody can inject commands here
                 if count >= i:
-                    caption_findings.append(re.sub(r"[^a-zA-Z0-9\_]", "", caption_word))
+                    caption_findings.append(re.sub(r"[^a-zA-Z0-9äöüÄÖÜß\_]", "", caption_word))
                     i += 1
 
         # add finding to new caption string

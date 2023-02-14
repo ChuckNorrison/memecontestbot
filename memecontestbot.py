@@ -130,6 +130,7 @@ async def main():
 
     header_message = build_ranking_caption()
     participants = []
+    message_senders = []
 
     if config.POST_PARTICIPANTS_CHAT_ID:
         # get all unique file ids from CSV
@@ -146,7 +147,7 @@ async def main():
             if str(message.media) != "MessageMediaType.PHOTO":
                 continue
 
-            # check for valid author in message caption
+            # check for valid author in message
             message_author = get_author(message)
             if not message_author:
                 continue
@@ -168,6 +169,19 @@ async def main():
                     except AttributeError:
                         # skip this message for missing reactions
                         continue
+                else:
+                    # prevent from caption abuse, check sender
+                    message_sender = get_sender(message)
+                    if message_sender in message_senders:
+                        logging.info(
+                            "Skip duplicate from '%s' as '%s' (message id: %s)",
+                            message_sender,
+                            message_author,
+                            message.id
+                        )
+                        continue
+
+                    message_senders.append(message_sender)
 
                 # no views in groups
                 message_views = 0
@@ -408,14 +422,22 @@ def get_author(message):
             message_author = False
 
     else:
-        try:
-            # group author
-            message_author = message.from_user.id
-        except AttributeError:
-            # channel author
-            message_author = message.author_signature
+        message_author = get_sender(message)
 
     return message_author
+
+def get_sender(message):
+    '''Return sender from message object'''
+    message_sender = False
+
+    try:
+        # group sender
+        message_sender = message.from_user.id
+    except AttributeError:
+        # channel sender with sign messages enabled
+        message_sender = message.author_signature
+
+    return message_sender
 
 def build_ranking_caption():
     """"Create header of final message"""

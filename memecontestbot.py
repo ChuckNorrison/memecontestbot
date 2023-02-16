@@ -24,7 +24,7 @@ from pyrogram.types import InputMediaPhoto
 
 from PIL import Image, ImageDraw, ImageFont
 
-VERSION_NUMBER = "v1.1.0"
+VERSION_NUMBER = "v1.2.0"
 
 # configure logging
 logging.basicConfig(

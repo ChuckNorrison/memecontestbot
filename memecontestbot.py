@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """
 Simple Bot to analyze telegram post reactions and create a ranking.
 Can be configured for daily or weekly rankings
@@ -68,6 +67,7 @@ try:
     TESTCONFIG += 'CONTEST_DAYS: ' + str(config.CONTEST_DAYS) + '\n'
     TESTCONFIG += 'CONTEST_MAX_RANKS: ' + str(config.CONTEST_MAX_RANKS) + '\n'
     TESTCONFIG += 'EXCLUDE_PATTERN: ' + str(config.EXCLUDE_PATTERN) + '\n'
+    TESTCONFIG += 'FINAL_MESSAGE_HEADER: ' + str(config.FINAL_MESSAGE_HEADER) + '\n'
     TESTCONFIG += 'FINAL_MESSAGE_FOOTER: ' + str(config.FINAL_MESSAGE_FOOTER) + '\n'
     TESTCONFIG += 'FINAL_MESSAGE_CHAT_ID: ' + str(config.FINAL_MESSAGE_CHAT_ID) + '\n'
     TESTCONFIG += 'PARTITICPANTS_FROM_CSV: ' + str(config.PARTITICPANTS_FROM_CSV) + '\n'
@@ -77,7 +77,9 @@ try:
     TESTCONFIG += 'POST_WINNER_PHOTO: ' + str(config.POST_WINNER_PHOTO) + '\n'
     TESTCONFIG += 'SIGN_MESSAGES: ' + str(config.SIGN_MESSAGES) + '\n'
     TESTCONFIG += 'RANK_MEMES: ' + str(config.RANK_MEMES) + '\n'
-    TESTCONFIG += 'POST_PARTICIPANTS_CHAT_ID: ' + str(config.POST_PARTICIPANTS_CHAT_ID)
+    TESTCONFIG += 'POST_PARTICIPANTS_CHAT_ID: ' + str(config.POST_PARTICIPANTS_CHAT_ID) + '\n'
+    TESTCONFIG += 'CONTEST_POLL: ' + str(config.CONTEST_POLL) + '\n'
+    TESTCONFIG += 'CONTEST_POLL_RESULT: ' + str(config.CONTEST_POLL_RESULT)
 except AttributeError as ex:
     logging.error("Read config file '%s' failed!", CONFIG)
     logging.error(TESTCONFIG)
@@ -128,13 +130,21 @@ async def main():
         # do not walk through chat history
         sys.exit()
 
-    header_message = build_ranking_caption()
+    if config.CONTEST_POLL_RESULT:
+        await evaluate_poll()
+
+        sys.exit()
+
     participants = []
-    message_senders = []
 
     if config.POST_PARTICIPANTS_CHAT_ID:
         # get all unique file ids from CSV
         unique_ids = get_csv_unique_ids()
+        # init senders array to prevent abuse
+        message_senders = []
+    else:
+        # need a header message if not in collect mode
+        header_message = build_ranking_caption()
 
     async with app:
         async for message in app.get_chat_history(config.CHAT_ID):
@@ -341,7 +351,6 @@ async def main():
 
 def create_participant(message, author):
     """Return new participant as dict from message object"""
-
     # initialize defaults
     message_counter = 0
     message_views = 0
@@ -379,7 +388,6 @@ def update_participant(participant, message):
 
 def get_caption_pattern(caption, pattern, count = 1):
     """Return findings from message caption as string"""
-
     caption_findings = []
     caption_new = False
 
@@ -449,13 +457,11 @@ def build_ranking_caption():
 
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 
-    header_message = (f"Top {config.CONTEST_MAX_RANKS} "
-            f"{header_contest_type} (Stand: {formatted_date})")
-
-    if config.CONTEST_DAYS == 1:
-        header_message = "Rangliste 24-Stunden " + header_message
-    else:
-        header_message = f"Rangliste {config.CONTEST_DAYS}-Tage " + header_message
+    header_message = (
+        f"{config.FINAL_MESSAGE_HEADER}"
+        f"Top {config.CONTEST_MAX_RANKS} "
+        f"{header_contest_type} (Stand: {formatted_date})"
+    )
 
     return header_message
 
@@ -542,7 +548,6 @@ def get_winners(participants):
 
 def create_ranking(participants, header_message, unique_ranks = False):
     """Build the final ranking message"""
-
     # get winners
     winners = get_winners(participants)
 
@@ -612,9 +617,107 @@ def create_ranking(participants, header_message, unique_ranks = False):
 # Poll mode methods
 ###########################
 
+async def find_poll():
+    '''search for the last open poll'''
+    poll_message = False
+
+    async with app:
+        async for message in app.get_chat_history(config.CHAT_ID):
+
+            if str(message.media) != "MessageMediaType.POLL":
+                continue
+
+            # the first poll we find needs to be open to evaluate
+            if message.poll.is_closed:
+                logging.info(
+                    "Last poll found is already closed, "
+                    "nothing to evaluate! (message id: %s)",
+                    message.id
+                )
+            else:
+                poll_message = message
+
+            break
+
+    return poll_message
+
+async def evaluate_poll():
+    '''search for the last open poll and evaluate'''
+    poll_message = await find_poll()
+
+    if not poll_message:
+        return False
+
+    # remember the reply message id
+    poll_reply_message_id = poll_message.reply_to_message_id
+
+    async with app:
+        # stop the poll and update poll message with results
+        logging.info("Stop poll now (message id: %s)", poll_message.id)
+        poll_message = await app.stop_poll(config.CHAT_ID, poll_message.id)
+
+        # find the best answer
+        best_vote_count = 0
+        best_option = False
+        second_best_vote_count = 0
+        second_best_option = False
+
+        for option in poll_message.options:
+            if option.voter_count > best_vote_count:
+                best_vote_count = option.voter_count
+                best_option = option.text
+            elif ( option.voter_count > 0
+                    and option.voter_count == best_vote_count ):
+                second_best_option = option.text
+
+        if not best_option:
+            logging.info("Was not able to find the best vote!")
+            return False
+
+        if best_vote_count == second_best_vote_count:
+            logging.info("Draw in poll found: %s vs %s", best_option, second_best_option)
+
+        # check the caption of poll based ranking message
+        ranking_message = await app.get_messages(
+            config.CHAT_ID,
+            poll_reply_message_id
+        )
+
+        i = 1
+        postlink = False
+        for entity in ranking_message.caption_entities:
+            if entity.url:
+                if i <= config.CONTEST_MAX_RANKS and i == int(best_option[0]):
+                    postlink = entity.url
+                    break
+                i += 1
+
+        if postlink:
+            message = await get_message_from_postlink(postlink)
+            if message:
+                photo_id = get_photo_id_from_msg(message)
+
+                if photo_id:
+                    poll_time = build_timeframe(contest_time, config.CONTEST_DAYS)
+                    message_author = get_author(message)
+
+                    final_message = (
+                        f"{config.FINAL_MESSAGE_HEADER}"
+                        f"{poll_time}\n\n"
+                        f"@{message_author}\n\n"
+                        f"{config.FINAL_MESSAGE_FOOTER}"
+                    )
+
+                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, photo_id,
+                        final_message, parse_mode=enums.ParseMode.MARKDOWN,
+                        reply_to_message_id=poll_reply_message_id)
+
+                    return True
+        else:
+            return False
+
 async def create_poll(participants):
     '''Create a poll to vote a winner from'''
-
     # get winners and do not touch the main participants array
     media_participants = copy.deepcopy(participants)
     winners = get_winners(media_participants)
@@ -665,50 +768,51 @@ async def create_poll(participants):
 
 async def create_numbered_photo(photo_id, number):
     '''Returns a photo with a watermark as number'''
-
     media = await app.download_media(photo_id, in_memory=True)
 
-    if media:
-        #Create an Image Object from an Image
-        image = Image.open(media)
+    if not media:
+        return False
 
-        # scale down the image
-        maxsize = (500, 500)
-        image.thumbnail(maxsize, Image.ANTIALIAS)
+    #Create an Image Object from an Image
+    image = Image.open(media)
 
-        # get image size
-        width, height = image.size
+    # scale down the image
+    maxsize = (500, 500)
+    image.thumbnail(maxsize, Image.ANTIALIAS)
 
-        # create a draw object from image
-        draw = ImageDraw.Draw(image)
+    # get image size
+    width, height = image.size
 
-        # define the font
-        font = ImageFont.truetype('arial.ttf', 136)
-        textwidth, textheight = draw.textsize(str(number), font)
+    # create a draw object from image
+    draw = ImageDraw.Draw(image)
 
-        # calculate the x,y coordinates of the text
-        dim_x = width/2 - textwidth/2
-        dim_y = height/2 - textheight/2
+    # define the font
+    font = ImageFont.truetype('arial.ttf', 136)
+    textwidth, textheight = draw.textsize(str(number), font)
 
-        # draw the number
-        draw.text(
-            (dim_x, dim_y),
-            str(number),
-            align="center",
-            font=font,
-            fill="#f27600",
-            stroke_width=4,
-            stroke_fill='black'
-        )
+    # calculate the x,y coordinates of the text
+    dim_x = width/2 - textwidth/2
+    dim_y = height/2 - textheight/2
 
-        # DEBUG
-        # image.show()
+    # draw the number
+    draw.text(
+        (dim_x, dim_y),
+        str(number),
+        align="center",
+        font=font,
+        fill="#f27600",
+        stroke_width=4,
+        stroke_fill='black'
+    )
 
-        #Save watermarked image
-        if not path.exists('images'):
-            makedirs('images')
+    # DEBUG
+    # image.show()
 
-        image.save('images/image_' + str(number) + '.jpg')
+    #Save watermarked image
+    if not path.exists('images'):
+        makedirs('images')
+
+    image.save('images/image_' + str(number) + '.jpg')
 
 ###########################
 # CSV based ranking methods
@@ -716,7 +820,6 @@ async def create_numbered_photo(photo_id, number):
 
 async def create_csv_ranking():
     """Run collect data from CSV files mode"""
-
     header_message = build_ranking_caption()
 
     # Get winners from participants and create final message
@@ -735,13 +838,13 @@ async def create_csv_ranking():
         async with app:
             if winner_photo != "" and config.POST_WINNER_PHOTO:
 
-                # get photo id from winner photo url
+                # check if winner_photo is a postlink
                 if "https://t.me/c/" in winner_photo:
-                    msg_id = get_message_id_from_postlink(winner_photo)
-                    message = await app.get_messages(config.CHAT_ID, msg_id)
+                    message = await get_message_from_postlink(winner_photo)
                     if message:
                         photo_id = get_photo_id_from_msg(message)
                         if photo_id:
+                            # set photo id
                             winner_photo = photo_id
 
                 await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
@@ -771,7 +874,6 @@ def create_csv_participant(csv_row):
 
 def get_csv_participants():
     """Collect participants from CSV file"""
-
     csv_participants = []
     with open(CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
 
@@ -831,6 +933,21 @@ def get_csv_unique_ids():
 # Common methods
 ##################
 
+async def get_message_from_postlink(postlink):
+    """return message from postlink"""
+    msg_id = get_message_id_from_postlink(postlink)
+    chat_id = get_chat_id_from_postlink(postlink)
+
+    message = await app.get_messages(chat_id, msg_id)
+
+    return message
+
+def get_chat_id_from_postlink(postlink):
+    """return chat id from postlink"""
+    arrpostlink = str(postlink).split("/")
+    chat_id = -int(f"{100}{int(arrpostlink[-2])}")
+    return chat_id
+
 def get_message_id_from_postlink(postlink):
     """return message id from postlink"""
     arrpostlink = str(postlink).split("/")
@@ -868,7 +985,7 @@ def build_timeframe(current_time, days):
     i = 0
     for date in reversed(date_list):
         if i == 0:
-            date_start = date.strftime("%d.%m.%Y")
+            date_start = date.strftime("%d.%m")
         elif i == len(date_list)-1:
             date_end = date.strftime("%d.%m.%Y")
         i += 1

@@ -23,9 +23,21 @@ CONTEST_DAYS = 1
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = 10
 
+# Create a poll with numbered images from winners found
+# True or False
+CONTEST_POLL = False
+
+# Evaluate the last poll found and 
+# Overrides CONTEST_POLL
+# True or False
+CONTEST_POLL_RESULT = False
+
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
+
+# text header to print on top of final messages
+FINAL_MESSAGE_HEADER = f"Rangliste 24-Stunden "
 
 # simple text footer in ranking view,
 # should be used to identify exclude posts

@@ -720,7 +720,10 @@ async def create_numbered_photo(photo_id, number):
     draw = ImageDraw.Draw(image)
 
     # define the font
-    font = ImageFont.truetype('arial.ttf', 136)
+    if os.name == 'nt':
+        font = ImageFont.truetype('arial.ttf', 136)
+    else:
+        font = ImageFont.truetype('DejaVuSans.ttf', 136)
     textwidth, textheight = draw.textsize(str(number), font)
 
     # calculate the x,y coordinates of the text

@@ -8,103 +8,30 @@ Usage:
 Start bot to create a nice ranking.
 """
 
-from datetime import datetime, timedelta
-from os import path, makedirs
-from argparse import ArgumentParser
-
+# default imports
+import os
 import sys
-import importlib
-import csv
-import re
 import logging
 import copy
+import csv
+import re
 
+from datetime import datetime, timedelta
+
+# telegram api
 from pyrogram import Client, enums
 from pyrogram.types import InputMediaPhoto
 
+# image manipulation api
 from PIL import Image, ImageDraw, ImageFont
 
-VERSION_NUMBER = "v1.2.0"
+# own modules
+import settings
 
-# configure logging
-logging.basicConfig(
-    format='%(asctime)s %(levelname)s %(message)s',
-    level=logging.INFO,
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+VERSION_NUMBER = "v1.2.1"
 
-# check config arguments
-parser = ArgumentParser()
-parser.add_argument("-c", "--config", dest="CONFIGFILE",
-                    help="path to file with your config", metavar="FILE")
-args = parser.parse_args()
-
-if args.CONFIGFILE:
-    config_path = path.dirname(path.abspath(args.CONFIGFILE))
-    try:
-        CONFIG = path.basename(args.CONFIGFILE)
-    except AttributeError:
-        CONFIG = args.CONFIGFILE
-
-    if CONFIG == "config.py":
-        logging.warning("Please rename your config file (config.py not allowed): %s",
-                args.CONFIGFILE)
-        sys.exit()
-    else:
-        sys.path.append(config_path)
-else:
-    # Default config file
-    CONFIG = "config.py"
-
-# start import config file
-try:
-    config = importlib.import_module(CONFIG.replace('.py',''))
-    TESTCONFIG = ""
-    TESTCONFIG += '\nCHAT_ID: ' + str(config.CHAT_ID) + '\n'
-    TESTCONFIG += 'CONTEST_DATE: ' + str(config.CONTEST_DATE) + '\n'
-    TESTCONFIG += 'CONTEST_DAYS: ' + str(config.CONTEST_DAYS) + '\n'
-    TESTCONFIG += 'CONTEST_MAX_RANKS: ' + str(config.CONTEST_MAX_RANKS) + '\n'
-    TESTCONFIG += 'EXCLUDE_PATTERN: ' + str(config.EXCLUDE_PATTERN) + '\n'
-    TESTCONFIG += 'FINAL_MESSAGE_HEADER: ' + str(config.FINAL_MESSAGE_HEADER) + '\n'
-    TESTCONFIG += 'FINAL_MESSAGE_FOOTER: ' + str(config.FINAL_MESSAGE_FOOTER) + '\n'
-    TESTCONFIG += 'FINAL_MESSAGE_CHAT_ID: ' + str(config.FINAL_MESSAGE_CHAT_ID) + '\n'
-    TESTCONFIG += 'PARTITICPANTS_FROM_CSV: ' + str(config.PARTITICPANTS_FROM_CSV) + '\n'
-    TESTCONFIG += 'CREATE_CSV: ' + str(config.CREATE_CSV) + '\n'
-    TESTCONFIG += 'CSV_CHAT_ID: ' + str(config.CSV_CHAT_ID) + '\n'
-    TESTCONFIG += 'POST_LINK: ' + str(config.POST_LINK) + '\n'
-    TESTCONFIG += 'POST_WINNER_PHOTO: ' + str(config.POST_WINNER_PHOTO) + '\n'
-    TESTCONFIG += 'SIGN_MESSAGES: ' + str(config.SIGN_MESSAGES) + '\n'
-    TESTCONFIG += 'RANK_MEMES: ' + str(config.RANK_MEMES) + '\n'
-    TESTCONFIG += 'POST_PARTICIPANTS_CHAT_ID: ' + str(config.POST_PARTICIPANTS_CHAT_ID) + '\n'
-    TESTCONFIG += 'CONTEST_POLL: ' + str(config.CONTEST_POLL) + '\n'
-    TESTCONFIG += 'CONTEST_POLL_RESULT: ' + str(config.CONTEST_POLL_RESULT)
-except AttributeError as ex:
-    logging.error("Read config file '%s' failed!", CONFIG)
-    logging.error(TESTCONFIG)
-    logging.error(ex)
-    sys.exit()
-except ModuleNotFoundError as ex:
-    logging.error("Import '%s' failed!", CONFIG)
-    logging.error(ex)
-    sys.exit()
-
-API_FILE = "config_api.py"
-try:
-    api = importlib.import_module(API_FILE.replace('.py',''))
-    TESTAPI = ""
-    TESTAPI += '\nID: ' + str(api.ID) + '\n'
-    TESTAPI += 'HASH: ' + str(api.HASH)
-except AttributeError as ex:
-    logging.error("Read api file '%s' failed!", API_FILE)
-    logging.error(TESTCONFIG)
-    logging.error(ex)
-    sys.exit()
-except ModuleNotFoundError as ex:
-    logging.error("Import'%s' failed!", API_FILE)
-    logging.error(ex)
-    sys.exit()
+config = settings.load_config()
+api = settings.load_api()
 
 app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 
@@ -322,15 +249,11 @@ async def main():
                     await app.send_document(config.CSV_CHAT_ID, CSV_FILE,
                             caption=header_message)
 
-            try:
-                if config.CONTEST_POLL:
-                    # Poll mode: Create a voting poll for winners
-                    await create_poll(participants)
+            if config.CONTEST_POLL:
+                # Poll mode: Create a voting poll for winners
+                await create_poll(participants)
 
-                    sys.exit()
-
-            except AttributeError:
-                logging.warning("Config CONTEST_POLL is missing!")
+                sys.exit()
 
             final_message, winner_photo = create_ranking(participants, header_message)
 
@@ -483,7 +406,7 @@ def write_rows_to_csv(participants):
 
     # open file an append rows
     write_header = False
-    if not path.isfile(CSV_FILE):
+    if not os.path.isfile(CSV_FILE):
         write_header = True
 
     with open(CSV_FILE, mode='a', encoding="utf-8") as csvfile:
@@ -683,6 +606,14 @@ async def evaluate_poll():
             poll_reply_message_id
         )
 
+        if not ranking_message:
+            logging.info(
+                "No message '%s' found in '%s)",
+                poll_reply_message_id,
+                config.CHAT_ID
+            )
+            return False
+
         i = 1
         postlink = False
         for entity in ranking_message.caption_entities:
@@ -718,6 +649,7 @@ async def evaluate_poll():
 
 async def create_poll(participants):
     '''Create a poll to vote a winner from'''
+
     # get winners and do not touch the main participants array
     media_participants = copy.deepcopy(participants)
     winners = get_winners(media_participants)
@@ -732,6 +664,7 @@ async def create_poll(participants):
     rank = 1
     for winner in winners:
 
+        logging.info("Create numbered image %s (message id: %s)", rank, winner["id"])
         await create_numbered_photo(winner["photo_id"], rank)
 
         poll_answers.append(f"{rank}. Meme")
@@ -809,10 +742,12 @@ async def create_numbered_photo(photo_id, number):
     # image.show()
 
     #Save watermarked image
-    if not path.exists('images'):
-        makedirs('images')
+    if not os.path.exists('images'):
+        os.makedirs('images')
 
-    image.save('images/image_' + str(number) + '.jpg')
+    img_name = 'images/image_' + str(number) + '.jpg'
+    image.save(img_name)
+    logging.info("Save image as %s", img_name)
 
 ###########################
 # CSV based ranking methods
@@ -912,7 +847,7 @@ def get_csv_unique_ids():
     """Collect unique file ids from CSV file"""
     csv_unique_ids = []
 
-    if path.isfile(CSV_FILE):
+    if os.path.isfile(CSV_FILE):
 
         with open(CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
 
@@ -927,7 +862,6 @@ def get_csv_unique_ids():
                     continue
 
     return csv_unique_ids
-
 
 ##################
 # Common methods

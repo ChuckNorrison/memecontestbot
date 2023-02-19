@@ -38,6 +38,8 @@ app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 # global vars
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 contest_year = contest_time.strftime("%Y")
+
+# set csv file name
 CSV_FILE = (
     "contest_"
     + str(config.CHAT_ID)
@@ -45,6 +47,8 @@ CSV_FILE = (
     + contest_year
     + ".csv"
 )
+if isinstance(config.CREATE_CSV, str):
+    CSV_FILE = config.CREATE_CSV
 
 async def main():
     """This function will run the bot"""
@@ -856,13 +860,21 @@ def get_csv_unique_ids():
 
             csv_dict = csv.DictReader(csvfile_single)
 
+            logging.info("Load unique IDs from CSV %s", CSV_FILE)
+
+            i = 0
             for row in csv_dict:
                 try:
                     if row['Unique ID'] != "":
                         csv_unique_ids.append([row['Postlink'], row['Unique ID'],])
+                        i += 1
                 except KeyError:
                     logging.info("Unique ID is missing in CSV. Skip repost check!")
                     continue
+
+            logging.info("Unique IDs found: %d", i)
+    else:
+        logging.warning("No CSV to recheck known unique IDs (%s)", CSV_FILE)
 
     return csv_unique_ids
 

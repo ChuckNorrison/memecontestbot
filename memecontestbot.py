@@ -39,17 +39,6 @@ app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
 contest_year = contest_time.strftime("%Y")
 
-# set csv file name
-CSV_FILE = (
-    "contest_"
-    + str(config.CHAT_ID)
-    + "_"
-    + contest_year
-    + ".csv"
-)
-if isinstance(config.CREATE_CSV, str):
-    CSV_FILE = config.CREATE_CSV
-
 async def main():
     """This function will run the bot"""
     logging.info("Start meme contest bot version %s", VERSION_NUMBER)
@@ -115,8 +104,7 @@ async def main():
                     message_sender = get_sender(message)
                     if message_sender in message_senders:
                         logging.info(
-                            "Skip duplicate from '%s' as '%s' (message id: %s)",
-                            message_sender,
+                            "Skip duplicate from '%s' (message id: %s)",
                             message_author,
                             message.id
                         )
@@ -195,9 +183,10 @@ async def main():
                                     "Dieses Meme ist bereits bekannt, "
                                     + f"[schau hier]({unique_id[0]})"
                                 )
-                                logging.info("%s (reply to msg id %s)",
+                                logging.info("%s (reply to msg id %s, photo id %s)",
                                     repost_msg,
-                                    str(message.id)
+                                    str(message.id),
+                                    str(message.photo.file_unique_id)
                                 )
 
                                 if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
@@ -215,9 +204,10 @@ async def main():
                         # Collect mode: post message to given chat
                         if not config.SIGN_MESSAGES:
                             message_author = "@" + message_author
-                        logging.info("Collect %s (message id: %s)",
+                        logging.info("Collect %s (message id: %s, unique id: %s)",
                                 message_author,
-                                message.id
+                                message.id,
+                                message.photo.file_unique_id
                         )
 
                         # extract hashtag from caption
@@ -247,10 +237,10 @@ async def main():
 
             if config.CREATE_CSV:
 
-                write_rows_to_csv(participants)
+                rows_count = write_rows_to_csv(participants)
 
-                if config.CSV_CHAT_ID and CSV_FILE:
-                    await app.send_document(config.CSV_CHAT_ID, CSV_FILE,
+                if rows_count > 0 and config.CSV_CHAT_ID and config.CSV_FILE:
+                    await app.send_document(config.CSV_CHAT_ID, config.CSV_FILE,
                             caption=header_message)
 
             if config.CONTEST_POLL:
@@ -410,10 +400,10 @@ def write_rows_to_csv(participants):
 
     # open file an append rows
     write_header = False
-    if not os.path.isfile(CSV_FILE):
+    if not os.path.isfile(config.CSV_FILE):
         write_header = True
 
-    with open(CSV_FILE, mode='a', encoding="utf-8") as csvfile:
+    with open(config.CSV_FILE, mode='a', encoding="utf-8") as csvfile:
         csvwriter = csv.writer(csvfile)
 
         # write header if file is new
@@ -429,12 +419,12 @@ def write_rows_to_csv(participants):
             ]
 
             csvwriter.writerow(csv_fields)
-            logging.info("CSV created: %s", CSV_FILE)
+            logging.info("CSV created: %s", config.CSV_FILE)
 
         csvwriter.writerows(csv_rows)
-        logging.info("CSV update: %s", CSV_FILE)
+        logging.info("CSV update %d rows in %s", len(csv_rows), config.CSV_FILE)
 
-    return CSV_FILE
+    return len(csv_rows)
 
 def get_winner(participants):
     """Extracts the best post from participants and returns the winner"""
@@ -774,7 +764,7 @@ async def create_csv_ranking():
 
         if not final_message:
             logging.warning("Can not create final message from CSV participants (file: %s)",
-                    str(CSV_FILE))
+                    str(config.CSV_FILE))
             sys.exit()
 
         async with app:
@@ -817,7 +807,7 @@ def create_csv_participant(csv_row):
 def get_csv_participants():
     """Collect participants from CSV file"""
     csv_participants = []
-    with open(CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
+    with open(config.CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
 
         csv_dict = csv.DictReader(csvfile_single)
 
@@ -854,13 +844,13 @@ def get_csv_unique_ids():
     """Collect unique file ids from CSV file"""
     csv_unique_ids = []
 
-    if os.path.isfile(CSV_FILE):
+    if os.path.isfile(config.CSV_FILE):
 
-        with open(CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
+        with open(config.CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
 
             csv_dict = csv.DictReader(csvfile_single)
 
-            logging.info("Load unique IDs from CSV %s", CSV_FILE)
+            logging.info("Load unique IDs from CSV %s", config.CSV_FILE)
 
             i = 0
             for row in csv_dict:
@@ -874,7 +864,7 @@ def get_csv_unique_ids():
 
             logging.info("Unique IDs found: %d", i)
     else:
-        logging.warning("No CSV to recheck known unique IDs (%s)", CSV_FILE)
+        logging.warning("No CSV to recheck known unique IDs (%s)", config.CSV_FILE)
 
     return csv_unique_ids
 

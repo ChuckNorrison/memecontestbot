@@ -16,6 +16,7 @@ Daily, weekly or monthly ranking messages for your Telegram Channel or Group.
 - Collect Photos from a Group `CHAT_ID` and post them to another Chat given as `POST_PARTICIPANTS_CHAT_ID`
 - Use `PARTITICPANTS_FROM_CSV` to create ranking from CSV data instead of chat data
 - Enable `CONTEST_POLL` to create a ranking with poll and vote from numbered images
+- Enable `CONTEST_POLL_RESULT` to evaluate last poll and find a winner
 
 ## Setup Telegram App
 The first step requires you to obtain a valid Telegram API key (api_id and api_hash pair):

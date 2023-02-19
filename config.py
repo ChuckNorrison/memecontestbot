@@ -27,7 +27,7 @@ CONTEST_MAX_RANKS = 10
 # True or False
 CONTEST_POLL = False
 
-# Evaluate the last poll found and 
+# Evaluate the last poll found and
 # Overrides CONTEST_POLL
 # True or False
 CONTEST_POLL_RESULT = False
@@ -37,7 +37,7 @@ CONTEST_POLL_RESULT = False
 EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
 
 # text header to print on top of final messages
-FINAL_MESSAGE_HEADER = f"Rangliste 24-Stunden "
+FINAL_MESSAGE_HEADER = "Rangliste 24-Stunden "
 
 # simple text footer in ranking view,
 # should be used to identify exclude posts
@@ -47,8 +47,8 @@ FINAL_MESSAGE_FOOTER = f"🏆 [{EXCLUDE_PATTERN[0]}](https://t.me/mychannelname)
 # with ranking and winner photo or set to False
 FINAL_MESSAGE_CHAT_ID = False
 
-# Collect all CSV files to a new overall CSV
-# anbd generate a ranking message based on the CSV data (i.e. useful for monthly rankings)
+# Generate a ranking message based on CSV data
+# could be useful for monthly rankings
 # Set True or False
 PARTITICPANTS_FROM_CSV = False
 
@@ -56,7 +56,7 @@ PARTITICPANTS_FROM_CSV = False
 # in final message on the result counter
 POST_LINK = True
 
-# Create a CSV file with all participants found
+# Create or append Data to CSV file
 CREATE_CSV = True
 
 # Send CSV file to a given chat id

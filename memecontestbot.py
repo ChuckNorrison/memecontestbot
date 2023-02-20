@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.1"
+VERSION_NUMBER = "v1.2.2"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -59,7 +59,7 @@ async def main():
         # Poll mode: Create a voting poll for winners
         await create_poll()
 
-        sys.exit()        
+        sys.exit()
 
     participants = []
 

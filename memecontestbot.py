@@ -55,6 +55,12 @@ async def main():
 
         sys.exit()
 
+    if config.CONTEST_POLL:
+        # Poll mode: Create a voting poll for winners
+        await create_poll()
+
+        sys.exit()        
+
     participants = []
 
     if config.POST_PARTICIPANTS_CHAT_ID:
@@ -242,12 +248,6 @@ async def main():
                 if rows_count > 0 and config.CSV_CHAT_ID and config.CSV_FILE:
                     await app.send_document(config.CSV_CHAT_ID, config.CSV_FILE,
                             caption=header_message)
-
-            if config.CONTEST_POLL:
-                # Poll mode: Create a voting poll for winners
-                await create_poll(participants)
-
-                sys.exit()
 
             final_message, winner_photo = create_ranking(participants, header_message)
 
@@ -463,10 +463,13 @@ def get_winners(participants):
 
     return winners
 
-def create_ranking(participants, header_message, unique_ranks = False):
+def create_ranking(participants, header_message, unique_ranks = False, sort = True):
     """Build the final ranking message"""
     # get winners
-    winners = get_winners(participants)
+    if sort:
+        winners = get_winners(participants)
+    else:
+        winners = participants
 
     # init vars
     rank = 0
@@ -588,8 +591,10 @@ async def evaluate_poll():
                 second_best_option = option.text
 
         if not best_option:
-            logging.info("Was not able to find the best vote!")
+            logging.warning("Was not able to find the best vote!")
             return False
+
+        logging.info("Best option found as %s with %d votes", best_option, best_vote_count)
 
         if best_vote_count == second_best_vote_count:
             logging.info("Draw in poll found: %s vs %s", best_option, second_best_option)
@@ -612,6 +617,7 @@ async def evaluate_poll():
         postlink = False
         for entity in ranking_message.caption_entities:
             if entity.url:
+                # search for winner postlink in caption
                 if i <= config.CONTEST_MAX_RANKS and i == int(best_option[0]):
                     postlink = entity.url
                     break
@@ -621,9 +627,8 @@ async def evaluate_poll():
             message = await get_message_from_postlink(postlink)
             if message:
                 photo_id = get_photo_id_from_msg(message)
-
                 if photo_id:
-                    poll_time = build_timeframe(contest_time, config.CONTEST_DAYS)
+                    poll_time = build_timeframe(contest_time, config.CONTEST_DAYS+1)
                     message_author = get_author(message)
 
                     final_message = (
@@ -641,57 +646,73 @@ async def evaluate_poll():
         else:
             return False
 
-async def create_poll(participants):
+async def create_poll():
     '''Create a poll to vote a winner from'''
 
-    # get winners and do not touch the main participants array
-    media_participants = copy.deepcopy(participants)
-    winners = get_winners(media_participants)
+    winners = get_csv_daily_winners()
 
     # create the ranking message
     header_message = build_ranking_caption()
-    final_message, _winner_photo = create_ranking(participants, header_message, True)
+    ranking_winners = copy.deepcopy(winners)
+    final_message, _winner_photo = create_ranking(ranking_winners, header_message, True, False)
 
-    # create numbered photos from winners
-    media_group = []
-    poll_answers = []
-    rank = 1
-    for winner in winners:
+    async with app:
+        # create numbered photos from winners
+        media_group = []
+        poll_answers = []
+        poll_start_date = ""
+        poll_end_date = ""
 
-        logging.info("Create numbered image %s (message id: %s)", rank, winner["id"])
-        await create_numbered_photo(winner["photo_id"], rank)
+        rank = 1
+        for winner in winners:
+            winner_date = datetime.strptime(winner['date'], "%Y-%m-%d %H:%M:%S")
+            winner_date = winner_date.strftime("%d.%m.%Y")
+            if rank == 1:
+                poll_end_date = winner_date
 
-        poll_answers.append(f"{rank}. Meme")
+            winner_photo_id = False
 
-        if rank == 1:
-            media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg", final_message))
-        else:
-            media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg"))
+            logging.info("Create numbered image %s from %s", rank, winner["postlink"])
 
-        rank += 1
-        if rank > config.CONTEST_MAX_RANKS:
-            break
+            # get photo id
+            winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
 
-    if config.FINAL_MESSAGE_CHAT_ID:
+            if winner_photo_id:
+                await create_numbered_photo(winner_photo_id, rank)
 
-        media_group_message = await app.send_media_group(
-            config.FINAL_MESSAGE_CHAT_ID,
-            media_group
-        )
+            poll_answers.append(f"{rank}. Meme ({winner_date})")
 
-        # create question message
-        poll_time = build_timeframe(contest_time, config.CONTEST_DAYS)
-        poll_question = (
-            "Die Wahl zum Meme der Woche\n"
-            f"vom {poll_time} (24h Abstimmung)"
-        )
+            if rank == 1:
+                media_group.append(
+                    InputMediaPhoto("images/image_" + str(rank) + ".jpg",final_message)
+                )
+            else:
+                media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg"))
 
-        await app.send_poll(
-            config.FINAL_MESSAGE_CHAT_ID,
-            poll_question,
-            poll_answers,
-            reply_to_message_id=media_group_message[0].id
-        )
+            rank += 1
+            if rank > config.CONTEST_MAX_RANKS:
+                poll_start_date = winner_date
+                break
+
+        if config.FINAL_MESSAGE_CHAT_ID:
+
+            media_group_message = await app.send_media_group(
+                config.FINAL_MESSAGE_CHAT_ID,
+                media_group
+            )
+
+            # create question message
+            poll_question = (
+                "Die Wahl zum Meme der Woche\n"
+                f"vom {poll_start_date} - {poll_end_date} (24h Abstimmung)"
+            )
+
+            await app.send_poll(
+                config.FINAL_MESSAGE_CHAT_ID,
+                poll_question,
+                poll_answers,
+                reply_to_message_id=media_group_message[0].id
+            )
 
 async def create_numbered_photo(photo_id, number):
     '''Returns a photo with a watermark as number'''
@@ -772,12 +793,10 @@ async def create_csv_ranking():
 
                 # check if winner_photo is a postlink
                 if "https://t.me/c/" in winner_photo:
-                    message = await get_message_from_postlink(winner_photo)
-                    if message:
-                        photo_id = get_photo_id_from_msg(message)
-                        if photo_id:
-                            # set photo id
-                            winner_photo = photo_id
+                    photo_id = get_photo_id_from_postlink(winner_photo)
+                    if photo_id:
+                        # set photo id
+                        winner_photo = photo_id
 
                 await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
                         final_message, parse_mode=enums.ParseMode.MARKDOWN)
@@ -822,7 +841,7 @@ def get_csv_participants():
                     duplicate = True
 
                 # check if User already found and add stats
-                elif row['Username'] == participant["author"]:
+                elif not config.RANK_MEMES and row['Username'] == participant["author"]:
                     participant["count"] += int(row['Count'])
                     participant["views"] += int(row['Views'])
                     duplicate = True
@@ -832,13 +851,40 @@ def get_csv_participants():
                 participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
                 participant_difftime = contest_time - participant_time
 
-                if ( (participant_difftime.days <= config.CONTEST_DAYS-1)
+                if ( participant_difftime.days <= config.CONTEST_DAYS
                         and not participant_difftime.days < 0 ):
                     # add participant to array
                     csv_participant = create_csv_participant(row)
                     csv_participants.append(csv_participant)
 
     return csv_participants
+
+def get_csv_daily_winners():
+    '''get daily based winners from CSV'''
+    csv_winners = []
+
+    # Read participants from CSV data for all contest days
+    csv_participants = get_csv_participants()
+
+    # find a winner for each contest day
+    i = 1
+    while i <= config.CONTEST_DAYS+1:
+        daily_ranking_time = contest_time-timedelta(days=i)
+        daily_participants = []
+
+        for csv_participant in csv_participants:
+            participant_time = datetime.strptime(str(csv_participant['date']), "%Y-%m-%d %H:%M:%S")
+
+            if (participant_time - daily_ranking_time).days == 0:
+                daily_participants.append(csv_participant)
+
+        csv_winner, _participants = get_winner(daily_participants)
+        if csv_winner:
+            csv_winners.append(csv_winner)
+
+        i += 1
+
+    return csv_winners
 
 def get_csv_unique_ids():
     """Collect unique file ids from CSV file"""
@@ -880,6 +926,18 @@ async def get_message_from_postlink(postlink):
     message = await app.get_messages(chat_id, msg_id)
 
     return message
+
+async def get_photo_id_from_postlink(postlink):
+    """return photo id from CSV data or from chat history"""
+    photo_id = False
+
+    message = await get_message_from_postlink(postlink)
+    if message:
+        photo_id = get_photo_id_from_msg(message)
+    else:
+        logging.error("Cant find message from postlink: %s", postlink)
+
+    return photo_id
 
 def get_chat_id_from_postlink(postlink):
     """return chat id from postlink"""
@@ -925,7 +983,7 @@ def build_timeframe(current_time, days):
     for date in reversed(date_list):
         if i == 0:
             date_start = date.strftime("%d.%m")
-        elif i == len(date_list)-1:
+        elif i == len(date_list)-2:
             date_end = date.strftime("%d.%m.%Y")
         i += 1
 

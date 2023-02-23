@@ -232,8 +232,11 @@ async def main():
             if config.FINAL_MESSAGE_CHAT_ID:
 
                 if winner_photo != "" and config.POST_WINNER_PHOTO:
-                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
-                            final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                    await send_message_photo(
+                        config.FINAL_MESSAGE_CHAT_ID,
+                        final_message,
+                        winner_photo
+                    )
 
                 elif winner_photo != "" and not config.POST_WINNER_PHOTO:
                     await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
@@ -243,6 +246,19 @@ async def main():
                     log_msg = ("Something went wrong!"
                             " Can not find winner photo for final ranking message")
                     logging.warning(log_msg)
+
+async def send_message_photo(chatid, ranking_message, photo):
+    ''' split the message into chunks if too long '''
+    chunks = get_chunks(ranking_message, 2048)
+    i = 0
+    for chunk in chunks:
+        if i == 0:
+            await app.send_photo(chatid, photo,
+                    chunk, parse_mode=enums.ParseMode.MARKDOWN)
+        else:
+            await app.send_message(chatid, chunk,
+                    parse_mode=enums.ParseMode.MARKDOWN)
+        i += 1
 
 async def check_repost(message, unique_ids):
     '''check unique file id'''
@@ -662,6 +678,9 @@ async def evaluate_poll():
                 )
                 logging.info("\n%s", final_message)
 
+                if len(final_message) > 2048:
+                    logging.warning("Message too long (%d chars)", len(final_message))
+
                 await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, photo_id,
                     final_message, parse_mode=enums.ParseMode.MARKDOWN,
                     reply_to_message_id=poll_reply_message_id)
@@ -817,8 +836,11 @@ async def create_csv_ranking():
                         # set photo id
                         winner_photo = photo_id
 
-                await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
-                        final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                await send_message_photo(
+                    config.FINAL_MESSAGE_CHAT_ID,
+                    final_message,
+                    winner_photo
+                )
 
             elif winner_photo != "" and not config.POST_WINNER_PHOTO:
                 await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
@@ -1009,5 +1031,15 @@ def build_timeframe(current_time, days):
         date_message = f"{date_start} - {date_end}"
 
     return date_message
+
+def get_chunks(wrapstring, maxlength):
+    '''return wrapped string as yield'''
+    start = 0
+    end = 0
+    while start + maxlength  < len(wrapstring) and end != -1:
+        end = wrapstring.rfind("#", start, start + maxlength + 1)
+        yield wrapstring[start:end]
+        start = end
+    yield wrapstring[start:]
 
 app.run(main())

@@ -28,7 +28,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.3"
+VERSION_NUMBER = "v1.2.4"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -43,13 +43,13 @@ async def main():
     """This function will run the bot"""
     logging.info("Start meme contest bot version %s", VERSION_NUMBER)
 
+    if config.PARTITICPANTS_FROM_CSV:
+        # CSV Mode: Create a ranking message from CSV data
+        await create_csv_ranking()
+
+        sys.exit()
+
     async with app:
-
-        if config.PARTITICPANTS_FROM_CSV:
-            # CSV Mode: Create a ranking message from CSV data
-            await create_csv_ranking()
-
-            sys.exit()
 
         if config.CONTEST_POLL_RESULT:
             # Poll mode: Evaluate last open poll found
@@ -261,8 +261,8 @@ async def check_repost(message, unique_ids):
                 str(message.photo.file_unique_id)
             )
 
-            if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
-                await app.send_message(config.CHAT_ID, repost_msg,
+            if config.FINAL_MESSAGE_CHAT_ID:
+                await app.send_message(config.FINAL_MESSAGE_CHAT_ID, repost_msg,
                         reply_to_message_id=message.id,
                         parse_mode=enums.ParseMode.MARKDOWN)
 
@@ -529,8 +529,13 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
 
         final_message = final_message + "#" + str(rank) \
                 + " " + winner_display_name \
-                + " " + str(winner_count) \
-                + " 🏆 \n"
+                + " (" + str(winner_count) \
+                + ")"
+
+        if rank == 1:
+            final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
+        else:
+            final_message = final_message + "\n"
 
         i += 1
         if i > config.CONTEST_MAX_RANKS:
@@ -577,11 +582,19 @@ async def evaluate_poll():
         return False
 
     # remember the reply message id
-    poll_reply_message_id = poll_message.reply_to_message_id
+    if hasattr(poll_message, 'reply_to_message_id'):
+        poll_reply_message_id = poll_message.reply_to_message_id
+    else:
+        logging.error("Reply to message ID was missing from poll")
+        return False
 
     # stop the poll and update poll message with results
     logging.info("Stop poll now (message id: %s)", poll_message.id)
     poll_message = await app.stop_poll(config.CHAT_ID, poll_message.id)
+
+    if not hasattr(poll_message, 'options'):
+        logging.error("Poll message is missing results, stop first")
+        return False
 
     # find the best answer
     best_vote_count = 0
@@ -626,7 +639,10 @@ async def evaluate_poll():
         if entity.url:
             # search for winner postlink in caption
             if i <= config.CONTEST_MAX_RANKS and i == int(best_option[0]):
-                postlink = entity.url
+                if hasattr(entity, 'url'):
+                    postlink = entity.url
+                else:
+                    logging.error("best option is missing postlink (%s)", best_option[0])
                 break
             i += 1
 
@@ -641,9 +657,10 @@ async def evaluate_poll():
                 final_message = (
                     f"{config.FINAL_MESSAGE_HEADER}"
                     f"{poll_time}\n\n"
-                    f"@{message_author}\n\n"
+                    f"@{message_author}{config.RANKING_WINNER_SUFFIX}\n\n"
                     f"{config.FINAL_MESSAGE_FOOTER}"
                 )
+                logging.info("\n%s", final_message)
 
                 await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, photo_id,
                     final_message, parse_mode=enums.ParseMode.MARKDOWN,
@@ -673,29 +690,27 @@ async def create_poll():
     for winner in winners:
         winner_date = datetime.strptime(winner['date'], "%Y-%m-%d %H:%M:%S")
         winner_date_formatted = winner_date.strftime("%d.%m.%Y")
+
         if rank == 1:
             poll_end_date = winner_date_formatted
-            poll_start_date = winner_date-timedelta(days=config.CONTEST_DAYS)
+            poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
             poll_start_date = poll_start_date.strftime("%d.%m.%Y")
+            logging.info("poll start date found: %s", poll_start_date)
 
-        winner_photo_id = False
-
-        logging.info("Create numbered image %s from %s", rank, winner["postlink"])
-
-        # get photo id
-        winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
-
-        if winner_photo_id:
-            await create_numbered_photo(winner_photo_id, rank)
-
-        poll_answers.append(f"{rank}. Meme ({winner_date_formatted})")
-
-        if rank == 1:
             media_group.append(
                 InputMediaPhoto("images/image_" + str(rank) + ".jpg",final_message)
             )
         else:
             media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg"))
+
+        logging.info("Create numbered image %s from %s", rank, winner["postlink"])
+
+        # get photo id
+        winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
+        if winner_photo_id:
+            await create_numbered_photo(winner_photo_id, rank)
+
+        poll_answers.append(f"{rank}. Meme ({winner_date_formatted})")
 
         rank += 1
         if rank > config.CONTEST_MAX_RANKS:
@@ -792,26 +807,27 @@ async def create_csv_ranking():
                     str(config.CSV_FILE))
             sys.exit()
 
-        if winner_photo != "" and config.POST_WINNER_PHOTO:
+        async with app:
+            if winner_photo != "" and config.POST_WINNER_PHOTO:
 
-            # check if winner_photo is a postlink
-            if "https://t.me/c/" in winner_photo:
-                photo_id = get_photo_id_from_postlink(winner_photo)
-                if photo_id:
-                    # set photo id
-                    winner_photo = photo_id
+                # check if winner_photo is a postlink
+                if "https://t.me/c/" in winner_photo:
+                    photo_id = await get_photo_id_from_postlink(winner_photo)
+                    if photo_id:
+                        # set photo id
+                        winner_photo = photo_id
 
-            await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
-                    final_message, parse_mode=enums.ParseMode.MARKDOWN)
+                await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, winner_photo,
+                        final_message, parse_mode=enums.ParseMode.MARKDOWN)
 
-        elif winner_photo != "" and not config.POST_WINNER_PHOTO:
-            await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
-                    parse_mode=enums.ParseMode.MARKDOWN)
+            elif winner_photo != "" and not config.POST_WINNER_PHOTO:
+                await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
+                        parse_mode=enums.ParseMode.MARKDOWN)
 
-        else:
-            log_msg = ("Something went wrong!"
-                    " Can not find winner photo for final overall ranking message")
-            logging.warning(log_msg)
+            else:
+                log_msg = ("Something went wrong!"
+                        " Can not find winner photo for final overall ranking message")
+                logging.warning(log_msg)
 
 def create_csv_participant(csv_row):
     """Create a participant dict from CSV data"""

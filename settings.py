@@ -89,6 +89,7 @@ def load_config():
     config.RANK_MEMES                   = getattr(config, 'RANK_MEMES', True)
     config.POST_PARTICIPANTS_CHAT_ID    = getattr(config, 'POST_PARTICIPANTS_CHAT_ID', False)
     config.CSV_FILE                     = getattr(config, 'CSV_FILE', "contest.csv")
+    config.RANKING_WINNER_SUFFIX        = getattr(config, 'RANKING_WINNER_SUFFIX', "🏅")
 
     return config
 

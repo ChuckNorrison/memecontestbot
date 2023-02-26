@@ -130,7 +130,7 @@ async def main():
                 highest_count = 0
                 for participant in participants:
 
-                    if participant["author"] == message_author:
+                    if participant["author"].lower() == message_author.lower():
                         duplicate = True
 
                         if config.POST_PARTICIPANTS_CHAT_ID:
@@ -717,20 +717,7 @@ async def create_poll():
         winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
         if winner_photo_id:
 
-            i = 0
-            max_loop = 3
-            while i <= max_loop:
-                media = await app.download_media(winner_photo_id, in_memory=True)
-                if media:
-                    break
-                # wait some time and retry download
-                logging.warning("Retry download media (%d/%d), sleep 60s ...", i, max_loop)
-                time.sleep(60)
-                i += 1
-            if not media:
-                logging.error("Download media failed with %s", winner_photo_id)
-                sys.exit()
-
+            media = await download_media(winner_photo_id)
             image_path = create_numbered_photo(media, rank)
             if not image_path:
                 logging.error(
@@ -777,6 +764,27 @@ async def create_poll():
             poll_answers,
             reply_to_message_id=media_group_message[0].id
         )
+
+async def download_media(photo_id):
+    '''Download media and retry on failure'''
+    media = False
+
+    i = 0
+    max_loop = 3
+    while i <= max_loop:
+        media = await app.download_media(photo_id, in_memory=True)
+        if media:
+            break
+        # wait some time and retry download
+        logging.warning("Retry download media (%d/%d), sleep 60s ...", i, max_loop)
+        time.sleep(60)
+        i += 1
+
+    if not media:
+        logging.error("Download media failed with %s", photo_id)
+        sys.exit()
+
+    return media
 
 def create_numbered_photo(photo, number):
     '''Returns path to the manipulated numbered photo as 500px thumbnail'''
@@ -891,28 +899,30 @@ def get_csv_participants():
         csv_dict = csv.DictReader(csvfile_single)
 
         for row in csv_dict:
-            duplicate = False
+            # check if row was in desired timeframe
+            participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
+            participant_difftime = contest_time - participant_time
 
-            # check if winner was already found
-            for participant in csv_participants:
+            if ( participant_difftime.days <= config.CONTEST_DAYS
+                    and not participant_difftime.days < 0 ):
 
-                # check for same post in different CSV files
-                if row['Postlink'] == participant["postlink"]:
-                    duplicate = True
+                duplicate = False
 
-                # check if User already found and add stats
-                elif not config.RANK_MEMES and row['Username'] == participant["author"]:
-                    participant["count"] += int(row['Count'])
-                    participant["views"] += int(row['Views'])
-                    duplicate = True
+                # check if winner was already found
+                for participant in csv_participants:
 
-            if not duplicate:
-                # check if row was in desired timeframe
-                participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
-                participant_difftime = contest_time - participant_time
+                    # check for same post in different CSV files
+                    if row['Postlink'] == participant["postlink"]:
+                        duplicate = True
 
-                if ( participant_difftime.days <= config.CONTEST_DAYS
-                        and not participant_difftime.days < 0 ):
+                    # check if User already found and add stats
+                    elif ( not config.RANK_MEMES
+                            and row['Username'].lower() == participant["author"].lower() ):
+                        participant["count"] += int(row['Count'])
+                        participant["views"] += int(row['Views'])
+                        duplicate = True
+
+                if not duplicate:
                     # add participant to array
                     csv_participant = create_csv_participant(row)
                     csv_participants.append(csv_participant)

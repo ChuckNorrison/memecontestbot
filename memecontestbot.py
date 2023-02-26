@@ -15,6 +15,7 @@ import logging
 import copy
 import csv
 import re
+import time
 
 from datetime import datetime, timedelta
 
@@ -28,7 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.4"
+VERSION_NUMBER = "v1.2.5"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -252,7 +253,7 @@ async def send_message_photo(chatid, ranking_message, photo):
     chunks = get_chunks(ranking_message, 2048)
     i = 0
     for chunk in chunks:
-        if i == 0:
+        if i == 0 and photo:
             await app.send_photo(chatid, photo,
                     chunk, parse_mode=enums.ParseMode.MARKDOWN)
         else:
@@ -710,26 +711,48 @@ async def create_poll():
         winner_date = datetime.strptime(winner['date'], "%Y-%m-%d %H:%M:%S")
         winner_date_formatted = winner_date.strftime("%d.%m.%Y")
 
-        if rank == 1:
-            poll_end_date = winner_date_formatted
-            poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
-            poll_start_date = poll_start_date.strftime("%d.%m.%Y")
-            logging.info("poll start date found: %s", poll_start_date)
-
-            media_group.append(
-                InputMediaPhoto("images/image_" + str(rank) + ".jpg",final_message)
-            )
-        else:
-            media_group.append(InputMediaPhoto("images/image_" + str(rank) + ".jpg"))
-
         logging.info("Create numbered image %s from %s", rank, winner["postlink"])
 
         # get photo id
         winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
         if winner_photo_id:
-            await create_numbered_photo(winner_photo_id, rank)
 
-        poll_answers.append(f"{rank}. Meme ({winner_date_formatted})")
+            i = 0
+            max_loop = 3
+            while i <= max_loop:
+                media = await app.download_media(winner_photo_id, in_memory=True)
+                if media:
+                    break
+                # wait some time and retry download
+                logging.warning("Retry download media (%d/%d), sleep 60s ...", i, max_loop)
+                time.sleep(60)
+                i += 1
+            if not media:
+                logging.error("Download media failed with %s", winner_photo_id)
+                sys.exit()
+
+            image_path = create_numbered_photo(media, rank)
+            if not image_path:
+                logging.error(
+                    "Create numbered photo failed for rank %d (%s)",
+                    rank,
+                    winner["postlink"]
+                )
+                sys.exit()
+
+            if rank == 1:
+                poll_end_date = winner_date_formatted
+                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
+                poll_start_date = poll_start_date.strftime("%d.%m.%Y")
+                logging.info("poll start date found: %s", poll_start_date)
+
+                media_group.append(InputMediaPhoto(image_path, final_message))
+            else:
+                media_group.append(InputMediaPhoto(image_path))
+
+            poll_answers.append(f"{rank}. Meme ({winner_date_formatted})")
+        else:
+            logging.warning("Winner photo not found from %s", winner["postlink"])
 
         rank += 1
         if rank > config.CONTEST_MAX_RANKS:
@@ -755,19 +778,17 @@ async def create_poll():
             reply_to_message_id=media_group_message[0].id
         )
 
-async def create_numbered_photo(photo_id, number):
-    '''Returns a photo with a watermark as number'''
-    media = await app.download_media(photo_id, in_memory=True)
-
-    if not media:
+def create_numbered_photo(photo, number):
+    '''Returns path to the manipulated numbered photo as 500px thumbnail'''
+    if not photo:
         return False
 
     #Create an Image Object from an Image
-    image = Image.open(media)
+    image = Image.open(photo)
 
     # scale down the image
     maxsize = (500, 500)
-    image.thumbnail(maxsize, Image.ANTIALIAS)
+    image.thumbnail(maxsize)
 
     # get image size
     width, height = image.size
@@ -780,21 +801,17 @@ async def create_numbered_photo(photo_id, number):
         font = ImageFont.truetype('arial.ttf', 136)
     else:
         font = ImageFont.truetype('DejaVuSans.ttf', 136)
-    textwidth, textheight = draw.textsize(str(number), font)
-
-    # calculate the x,y coordinates of the text
-    dim_x = width/2 - textwidth/2
-    dim_y = height/2 - textheight/2
 
     # draw the number
     draw.text(
-        (dim_x, dim_y),
+        (width/2, height/2),
         str(number),
         align="center",
         font=font,
         fill="#f27600",
         stroke_width=4,
-        stroke_fill='black'
+        stroke_fill='black',
+        anchor="mm"
     )
 
     #Save watermarked image
@@ -802,8 +819,10 @@ async def create_numbered_photo(photo_id, number):
         os.makedirs('images')
 
     img_name = 'images/image_' + str(number) + '.jpg'
-    image.save(img_name)
-    logging.info("Save image as %s", img_name)
+    image.save(img_name, "JPEG")
+    logging.info("Image saved as '%s'", img_name)
+
+    return img_name
 
 ###########################
 # CSV based ranking methods

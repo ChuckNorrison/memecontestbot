@@ -31,7 +31,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.7"
+VERSION_NUMBER = "v1.2.8"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -64,138 +64,11 @@ async def main():
 
             sys.exit()
 
-        participants = []
-
-        if config.POST_PARTICIPANTS_CHAT_ID:
-            # get all unique file ids from CSV
-            unique_ids = get_csv_unique_ids()
-            # init senders array to prevent abuse
-            message_senders = []
-        else:
-            # need a header message if not in collect mode
-            header_message = build_ranking_caption()
-
-        async for message in app.get_chat_history(config.CHAT_ID):
-
-            # check excludes in message caption
-            if check_excludes(message.caption):
-                continue
-
-            # check if message is a photo
-            if str(message.media) != "MessageMediaType.PHOTO":
-                continue
-
-            # check for valid author in message
-            message_author = get_author(message)
-            if not message_author:
-                continue
-
-            # check if message was in desired timeframe
-            message_time = datetime.strptime(
-                    str(message.date),
-                    "%Y-%m-%d %H:%M:%S")
-            message_difftime = contest_time - message_time
-
-            if ( (message_difftime.days < config.CONTEST_DAYS)
-                    and not message_difftime.days < 0 ):
-
-                message_reactions = 0
-                if not config.POST_PARTICIPANTS_CHAT_ID:
-                    # verify reactions for ranking message
-                    try:
-                        message_reactions = message.reactions.reactions[0].count
-                    except AttributeError:
-                        # skip this message for missing reactions
-                        continue
-                else:
-                    # prevent from caption abuse, check sender
-                    message_sender = get_sender(message)
-                    if message_sender in message_senders:
-                        logging.info(
-                            "Skip duplicate from '%s' (message id: %s)",
-                            message_author,
-                            message.id
-                        )
-                        continue
-                    message_senders.append(message_sender)
-
-                # no views in groups
-                message_views = 0
-                if hasattr(message, 'views'):
-                    message_views = message.views
-
-                # check if participant was already found
-                duplicate = False
-                highest_count = 0
-                for participant in participants:
-
-                    if participant["author"].lower() == message_author.lower():
-                        duplicate = True
-
-                        if config.POST_PARTICIPANTS_CHAT_ID:
-                            participant_time = datetime.strptime(
-                                    str(participant["date"]),
-                                    "%Y-%m-%d %H:%M:%S")
-
-                            if participant_time < message_time:
-                                # remember only the newest meme
-                                participant = create_participant(message, message_author)
-                            continue
-
-                        if config.RANK_MEMES:
-                            # already exist in participants array,
-                            # only one post allowed (prefer best)
-                            if participant["count"] < message_reactions:
-                                # update existent meme data
-                                participant = update_participant(participant, message)
-
-                                # update stats
-                                participant["count"] = message_reactions
-                                participant["views"] = message_views
-                            else:
-                                # nothing to do, keep this
-                                continue
-                        else:
-                            post_count = participant["count"]
-
-                            # remember the best meme of current participant
-                            if post_count > highest_count:
-                                highest_count = post_count
-
-                            if highest_count < message_reactions:
-                                # replace existent meme data
-                                participant = update_participant(participant, message)
-
-                            # update reaction counter and views, sum up
-                            participant["count"] += message_reactions
-                            participant["views"] += message_views
-
-                    elif message_author == "None":
-                        duplicate = True
-
-                if not duplicate:
-                    # Ranking mode: append to participants array to create ranking
-                    new_participant = create_participant(message, message_author)
-                    participants.append(new_participant)
-
-                    if config.POST_PARTICIPANTS_CHAT_ID:
-                        # skip this message if it is a repost
-                        unique_check = await check_repost(message, unique_ids)
-                        if unique_check:
-                            continue
-
-                        await send_collected_photo(message, message_author)
-
-            elif message_difftime.days < 0:
-                # message newer than expected or excluded, keep searching messages
-                continue
-
-            else:
-                # message too old from here, stop loop
-                break
+        participants = await get_participants()
 
         # create final message with ranking
         if not config.POST_PARTICIPANTS_CHAT_ID:
+            header_message = build_ranking_caption()
 
             if config.CREATE_CSV:
 
@@ -210,10 +83,10 @@ async def main():
             if config.FINAL_MESSAGE_CHAT_ID:
 
                 if winner_photo != "" and config.POST_WINNER_PHOTO:
-                    await send_message_photo(
+                    await send_photo_caption(
                         config.FINAL_MESSAGE_CHAT_ID,
-                        final_message,
-                        winner_photo
+                        winner_photo,
+                        final_message
                     )
 
                 elif winner_photo != "" and not config.POST_WINNER_PHOTO:
@@ -226,7 +99,7 @@ async def main():
                     logging.warning(log_msg)
 
 async def send_collected_photo(message, message_author):
-    '''resend collected photo from message'''
+    '''send collected photo from message to POST_PARTICIPANTS_CHAT_ID'''
 
     if not config.SIGN_MESSAGES:
         message_author = "@" + message_author
@@ -258,11 +131,9 @@ async def send_collected_photo(message, message_author):
                     message.photo.file_id,
                     photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
 
-    return True
-
-async def send_message_photo(chatid, ranking_message, photo):
-    ''' split the message into chunks if too long '''
-    chunks = get_chunks(ranking_message, 2048)
+async def send_photo_caption(chatid, photo, caption):
+    ''' split the photo caption into chunks if too long '''
+    chunks = get_chunks(caption, 2048)
     i = 0
     for chunk in chunks:
         if i == 0 and photo:
@@ -300,6 +171,81 @@ async def check_repost(message, unique_ids):
 
     return unique_check
 
+async def get_participants():
+    '''read chat history and return participants'''
+    contest_time = build_strptime(config.CONTEST_DATE)
+    participants = []
+
+    if config.POST_PARTICIPANTS_CHAT_ID:
+        # get all unique file ids from CSV
+        unique_ids = get_csv_unique_ids()
+        # init senders array to prevent abuse
+        message_senders = []
+
+    async for message in app.get_chat_history(config.CHAT_ID):
+
+        # check excludes in message caption
+        if check_excludes(message.caption):
+            continue
+
+        # check if message is a photo
+        if str(message.media) != "MessageMediaType.PHOTO":
+            continue
+
+        # check for valid author in message
+        message_author = get_author(message)
+        if not message_author:
+            continue
+
+        # check if message was in desired timeframe
+        message_time = build_strptime(str(message.date))
+        message_difftime = contest_time - message_time
+
+        if ( (message_difftime.days < config.CONTEST_DAYS)
+                and not message_difftime.days < 0 ):
+
+            # prevent from caption abuse, check sender
+            if config.POST_PARTICIPANTS_CHAT_ID:
+                message_sender = get_sender(message)
+                if message_sender in message_senders:
+                    logging.info(
+                        "Skip duplicate from '%s' (message id: %s)",
+                        message_author,
+                        message.id
+                    )
+                    continue
+                message_senders.append(message_sender)
+
+            participants, duplicate = check_participant_duplicates(
+                participants,
+                message,
+                message_author
+            )
+
+            if not duplicate:
+                # Ranking mode: append to participants array to create ranking
+                new_participant = create_participant(message, message_author)
+                participants.append(new_participant)
+
+                # Collect mode
+                if config.POST_PARTICIPANTS_CHAT_ID:
+                    # skip this message if it is a repost
+                    unique_check = await check_repost(message, unique_ids)
+                    if unique_check:
+                        continue
+
+                    await send_collected_photo(message, message_author)
+
+        elif message_difftime.days < 0:
+            # message newer than expected or excluded, keep searching messages
+            continue
+
+        else:
+            # message too old from here, stop loop
+            break
+
+    return participants
+
 def create_participant(message, author):
     """Return new participant as dict from message object"""
     # initialize defaults
@@ -336,6 +282,69 @@ def update_participant(participant, message):
     participant["id"] = message.id
 
     return participant
+
+def check_participant_duplicates(participants, message, message_author):
+    '''check if participant was already found'''
+
+    message_reactions = get_reactions(message)
+    if not message_reactions:
+        return participants, True
+
+    # no views in groups
+    message_views = 0
+    if hasattr(message, 'views'):
+        message_views = message.views
+
+    duplicate = False
+    highest_count = 0
+    for participant in participants:
+
+        if participant["author"].lower() == message_author.lower():
+            duplicate = True
+
+            if config.POST_PARTICIPANTS_CHAT_ID:
+                participant_time = datetime.strptime(
+                        str(participant["date"]),
+                        "%Y-%m-%d %H:%M:%S")
+
+                message_time = build_strptime(str(message.date))
+                if participant_time < message_time:
+                    # remember only the newest meme
+                    participant = create_participant(message, message_author)
+                continue
+
+            if config.RANK_MEMES:
+                # already exist in participants array,
+                # only one post allowed (prefer best)
+                if participant["count"] < message_reactions:
+                    # update existent meme data
+                    participant = update_participant(participant, message)
+
+                    # update stats
+                    participant["count"] = message_reactions
+                    participant["views"] = message_views
+                else:
+                    # nothing to do, keep this
+                    continue
+            else:
+                post_count = participant["count"]
+
+                # remember the best meme of current participant
+                if post_count > highest_count:
+                    highest_count = post_count
+
+                if highest_count < message_reactions:
+                    # replace existent meme data
+                    participant = update_participant(participant, message)
+
+                # update reaction counter and views, sum up
+                participant["count"] += message_reactions
+                participant["views"] += message_views
+
+        elif message_author == "None":
+            duplicate = True
+
+    return participants, duplicate
 
 def get_caption_pattern(caption, pattern, count = 1):
     """Return findings from message caption as string"""
@@ -397,6 +406,20 @@ def get_sender(message):
         message_sender = message.author_signature
 
     return message_sender
+
+def get_reactions(message):
+    '''get reactions from given message'''
+    message_reactions = 0
+
+    if not config.POST_PARTICIPANTS_CHAT_ID:
+        # verify reactions for ranking message
+        try:
+            message_reactions = message.reactions.reactions[0].count
+        except AttributeError:
+            # skip this message for missing reactions
+            return False
+
+    return message_reactions
 
 def build_ranking_caption():
     """"Create header of final message"""
@@ -878,10 +901,10 @@ async def create_csv_ranking():
                         # set photo id
                         winner_photo = photo_id
 
-                await send_message_photo(
+                await send_photo_caption(
                     config.FINAL_MESSAGE_CHAT_ID,
-                    final_message,
-                    winner_photo
+                    winner_photo,
+                    final_message
                 )
 
             elif winner_photo != "" and not config.POST_WINNER_PHOTO:

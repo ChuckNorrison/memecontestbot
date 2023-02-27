@@ -52,7 +52,7 @@ def get_file_from_args():
 def import_module(file):
     '''check if file exist and import'''
     config_module = importlib.import_module(file.replace('.py',''))
-    logging.info("Load config %s successful", file)
+    logging.info("importlib import_module %s", file)
     return config_module
 
 def load_config():

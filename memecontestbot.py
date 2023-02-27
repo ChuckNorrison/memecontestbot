@@ -20,8 +20,10 @@ import time
 from datetime import datetime, timedelta
 
 # telegram api
+import asyncio
 from pyrogram import Client, enums
 from pyrogram.types import InputMediaPhoto
+from pyrogram.errors import FloodWait
 
 # image manipulation api
 from PIL import Image, ImageDraw, ImageFont
@@ -29,7 +31,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.6"
+VERSION_NUMBER = "v1.2.7"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -177,34 +179,12 @@ async def main():
                     participants.append(new_participant)
 
                     if config.POST_PARTICIPANTS_CHAT_ID:
-
                         # skip this message if it is a repost
                         unique_check = await check_repost(message, unique_ids)
                         if unique_check:
                             continue
 
-                        # Collect mode: post message to given chat
-                        if not config.SIGN_MESSAGES:
-                            message_author = "@" + message_author
-                        logging.info("Collect %s (message id: %s, unique id: %s)",
-                                message_author,
-                                message.id,
-                                message.photo.file_unique_id
-                        )
-
-                        # extract hashtag from caption
-                        message_hashtags = get_caption_pattern(message.caption, "#")
-                        if message_hashtags:
-                            photo_caption = message_author + "\n\n" + message_hashtags
-                            logging.info("Hashtags: %s", message_hashtags)
-                        else:
-                            photo_caption = message_author
-
-                        # send the photo
-                        if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
-                            await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
-                                    message.photo.file_id,
-                                    photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
+                        await send_collected_photo(message, message_author)
 
             elif message_difftime.days < 0:
                 # message newer than expected or excluded, keep searching messages
@@ -244,6 +224,41 @@ async def main():
                     log_msg = ("Something went wrong!"
                             " Can not find winner photo for final ranking message")
                     logging.warning(log_msg)
+
+async def send_collected_photo(message, message_author):
+    '''resend collected photo from message'''
+
+    if not config.SIGN_MESSAGES:
+        message_author = "@" + message_author
+    logging.info("Collect %s (message id: %s, unique id: %s)",
+            message_author,
+            message.id,
+            message.photo.file_unique_id
+    )
+
+    # extract hashtag from caption
+    message_hashtags = get_caption_pattern(message.caption, "#")
+    if message_hashtags:
+        photo_caption = message_author + "\n\n" + message_hashtags
+        logging.info("Hashtags: %s", message_hashtags)
+    else:
+        photo_caption = message_author
+
+    # send the photo
+    if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
+        try:
+            await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
+                    message.photo.file_id,
+                    photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
+        except FloodWait as ex_flood:
+            logging.warning("Wait %s to send more photos...", ex_flood.value)
+            await asyncio.sleep(ex_flood.value)
+            # retry
+            await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
+                    message.photo.file_id,
+                    photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
+
+    return True
 
 async def send_message_photo(chatid, ranking_message, photo):
     ''' split the message into chunks if too long '''

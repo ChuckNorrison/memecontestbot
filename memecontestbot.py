@@ -409,7 +409,7 @@ def get_sender(message):
 
 def get_reactions(message):
     '''get reactions from given message'''
-    message_reactions = 0
+    message_reactions = 1
 
     if not config.POST_PARTICIPANTS_CHAT_ID:
         # verify reactions for ranking message

@@ -29,20 +29,18 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.5"
+VERSION_NUMBER = "v1.2.6"
 
 config = settings.load_config()
 api = settings.load_api()
 
 app = Client("my_account", api_id=api.ID, api_hash=api.HASH)
 
-# global vars
-contest_time = datetime.strptime(config.CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
-contest_year = contest_time.strftime("%Y")
-
 async def main():
     """This function will run the bot"""
-    logging.info("Start meme contest bot version %s", VERSION_NUMBER)
+    contest_time = build_strptime(config.CONTEST_DATE)
+    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
+    logging.info("Start meme contest bot version '%s' at %s", VERSION_NUMBER, formatted_date)
 
     if config.PARTITICPANTS_FROM_CSV:
         # CSV Mode: Create a ranking message from CSV data
@@ -96,7 +94,7 @@ async def main():
                     "%Y-%m-%d %H:%M:%S")
             message_difftime = contest_time - message_time
 
-            if ( (message_difftime.days <= config.CONTEST_DAYS-1)
+            if ( (message_difftime.days < config.CONTEST_DAYS)
                     and not message_difftime.days < 0 ):
 
                 message_reactions = 0
@@ -117,12 +115,11 @@ async def main():
                             message.id
                         )
                         continue
-
                     message_senders.append(message_sender)
 
                 # no views in groups
                 message_views = 0
-                if message.views:
+                if hasattr(message, 'views'):
                     message_views = message.views
 
                 # check if participant was already found
@@ -394,6 +391,7 @@ def build_ranking_caption():
     else:
         header_contest_type = "Contest Lords"
 
+    contest_time = build_strptime(config.CONTEST_DATE)
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
 
     header_message = (
@@ -668,6 +666,7 @@ async def evaluate_poll():
         if message:
             photo_id = get_photo_id_from_msg(message)
             if photo_id:
+                contest_time = build_strptime(config.CONTEST_DATE)
                 poll_time = build_timeframe(contest_time, config.CONTEST_DAYS+1)
                 message_author = get_author(message)
 
@@ -705,10 +704,11 @@ async def create_poll():
     poll_answers = []
     poll_start_date = ""
     poll_end_date = ""
+    contest_time = build_strptime(config.CONTEST_DATE)
 
     rank = 1
     for winner in winners:
-        winner_date = datetime.strptime(winner['date'], "%Y-%m-%d %H:%M:%S")
+        winner_date = build_strptime(winner['date'])
         winner_date_formatted = winner_date.strftime("%d.%m.%Y")
 
         logging.info("Create numbered image %s from %s", rank, winner["postlink"])
@@ -894,16 +894,18 @@ def create_csv_participant(csv_row):
 def get_csv_participants():
     """Collect participants from CSV file"""
     csv_participants = []
+    contest_time = build_strptime(config.CONTEST_DATE)
+
     with open(config.CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
 
         csv_dict = csv.DictReader(csvfile_single)
 
         for row in csv_dict:
             # check if row was in desired timeframe
-            participant_time = datetime.strptime(str(row['Timestamp']), "%Y-%m-%d %H:%M:%S")
+            participant_time = build_strptime(str(row['Timestamp']))
             participant_difftime = contest_time - participant_time
 
-            if ( participant_difftime.days <= config.CONTEST_DAYS
+            if ( participant_difftime.days < config.CONTEST_DAYS
                     and not participant_difftime.days < 0 ):
 
                 duplicate = False
@@ -932,6 +934,7 @@ def get_csv_participants():
 def get_csv_daily_winners():
     '''get daily based winners from CSV'''
     csv_winners = []
+    contest_time = build_strptime(config.CONTEST_DATE)
 
     # Read participants from CSV data for all contest days
     csv_participants = get_csv_participants()
@@ -943,7 +946,7 @@ def get_csv_daily_winners():
         daily_participants = []
 
         for csv_participant in csv_participants:
-            participant_time = datetime.strptime(str(csv_participant['date']), "%Y-%m-%d %H:%M:%S")
+            participant_time = build_strptime(str(csv_participant['date']))
 
             if (participant_time - daily_ranking_time).days == 0:
                 daily_participants.append(csv_participant)
@@ -1034,6 +1037,10 @@ def check_excludes(caption):
 
     return False
 
+def build_strptime(time_string):
+    '''Return time as strptime object'''
+    return datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
+
 def build_postlink(participant):
     """Builds link to given message"""
     participant_id = str(participant["id"])
@@ -1061,12 +1068,12 @@ def build_timeframe(current_time, days):
 
     return date_message
 
-def get_chunks(wrapstring, maxlength):
+def get_chunks(wrapstring, maxlength, pattern = "#"):
     '''return wrapped string as yield'''
     start = 0
     end = 0
     while start + maxlength  < len(wrapstring) and end != -1:
-        end = wrapstring.rfind("#", start, start + maxlength + 1)
+        end = wrapstring.rfind(pattern, start, start + maxlength + 1)
         yield wrapstring[start:end]
         start = end
     yield wrapstring[start:]

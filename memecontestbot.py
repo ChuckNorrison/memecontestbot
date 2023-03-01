@@ -538,6 +538,7 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
     last_count = 0
     winner_photo = ""
     final_message = ""
+    ranking_winner = False
 
     i = 1
     for winner in winners:
@@ -587,6 +588,7 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
 
         if rank == 1:
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
+            ranking_winner = winner
         else:
             final_message = final_message + "\n"
 
@@ -594,7 +596,27 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
         if i > config.CONTEST_MAX_RANKS:
             break
 
-    final_message = header_message + ":\n\n" + final_message + "\n" + config.FINAL_MESSAGE_FOOTER
+    # update placeholder
+    if "TEMPLATE_WINNER" in header_message:
+        header_message = header_message.replace(
+            r"{TEMPLATE_WINNER}",
+            ranking_winner["author"]
+        )
+    if "TEMPLATE_VOTES" in header_message:
+        header_message = header_message.replace(
+            r"{TEMPLATE_VOTES}",
+            str(ranking_winner["count"])
+        )
+
+    # build final message
+    final_message = (
+        header_message
+        + ":\n\n"
+        + final_message
+        + "\n"
+        + config.FINAL_MESSAGE_FOOTER
+    )
+
     logging.info("\n%s", final_message)
 
     return final_message, winner_photo

@@ -20,34 +20,50 @@ logging.basicConfig(
     ]
 )
 
-def get_file_from_args():
+def get_file_from_args(filetype):
     '''check config arguments'''
     parser = ArgumentParser()
     parser.add_argument("-c", "--config", dest="configfile",
                         help="path to file with your config", metavar="FILE")
+    parser.add_argument("-a", "--auth", dest="authfile",
+                        help="path to file with your authentication", metavar="FILE")
 
     # parse args and ignore unknown args
     args, _unknown = parser.parse_known_args()
 
     file = False
+    if filetype == "config":
+        if args.configfile:
+            file = args.configfile
+            add_path(file)
+        else:
+            # default file
+            file = "config.py"
 
-    if args.configfile:
-        # append path to environment if out of scope
-        config_path = path.dirname(path.abspath(args.configfile))
-        if path.exists(config_path):
-            sys.path.append(config_path)
-
-        # check file
-        file = path.basename(args.configfile)
-        file_path = path.join(config_path, args.configfile)
-        if not path.exists(file_path):
-            logging.info("Config file not found: %s", file_path)
-            sys.exit()
-    else:
-        # Default config file
-        file = "config.py"
+    elif filetype == "auth":
+        if args.authfile:
+            file = args.authfile
+            add_path(file)
+        else:
+            # default file
+            file = "config_api.py"
 
     return file
+
+def add_path(file):
+    '''append path to environment if out of scope'''
+    file_path = path.dirname(path.abspath(file))
+    if path.exists(file_path):
+        sys.path.append(file_path)
+
+    # check file
+    file = path.basename(file)
+    file_path = path.join(file_path, file)
+    if not path.exists(file_path):
+        logging.info("File not found: %s", file_path)
+        sys.exit()
+
+    return True
 
 def import_module(file):
     '''check if file exist and import'''
@@ -57,7 +73,7 @@ def import_module(file):
 
 def load_config():
     '''import and check contest configuration'''
-    filename = get_file_from_args()
+    filename = get_file_from_args("config")
     config = import_module(filename)
 
     # load and set defaults for missing configurations
@@ -95,7 +111,8 @@ def load_config():
 
 def load_api():
     '''import and check api configuration'''
-    api = import_module("config_api.py")
+    filename = get_file_from_args("auth")
+    api = import_module(filename)
 
     api.ID      = getattr(api, 'ID', 12345)
     api.HASH    = getattr(api, 'HASH', "myhashstring")

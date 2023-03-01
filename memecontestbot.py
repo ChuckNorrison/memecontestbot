@@ -429,13 +429,10 @@ def build_ranking_caption():
     else:
         header_contest_type = "Contest Lords"
 
-    contest_time = build_strptime(config.CONTEST_DATE)
-    formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
-
     header_message = (
         f"{config.FINAL_MESSAGE_HEADER}"
         f"Top {config.CONTEST_MAX_RANKS} "
-        f"{header_contest_type} (Stand: {formatted_date})"
+        f"{header_contest_type}"
     )
 
     return header_message
@@ -588,7 +585,8 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
 
         if rank == 1:
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
-            ranking_winner = winner
+            ranking_winner = winner_display_name
+            ranking_count = winner_count
         else:
             final_message = final_message + "\n"
 
@@ -600,12 +598,12 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
     if "TEMPLATE_WINNER" in header_message:
         header_message = header_message.replace(
             r"{TEMPLATE_WINNER}",
-            ranking_winner["author"]
+            ranking_winner
         )
     if "TEMPLATE_VOTES" in header_message:
         header_message = header_message.replace(
             r"{TEMPLATE_VOTES}",
-            str(ranking_winner["count"])
+            str(ranking_count)
         )
 
     # build final message

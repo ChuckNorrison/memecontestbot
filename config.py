@@ -37,6 +37,7 @@ CONTEST_POLL_RESULT = False
 EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
 
 # text header to print on top of final messages
+# Template variables: {TEMPLATE_WINNER}, {TEMPLATE_VOTES}
 FINAL_MESSAGE_HEADER = "Rangliste 24-Stunden "
 
 # simple text footer in ranking view,

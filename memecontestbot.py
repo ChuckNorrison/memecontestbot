@@ -31,7 +31,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.8"
+VERSION_NUMBER = "v1.2.9"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -68,17 +68,17 @@ async def main():
 
         # create final message with ranking
         if not config.POST_PARTICIPANTS_CHAT_ID:
-            header_message = build_ranking_caption()
 
             if config.CREATE_CSV:
 
                 rows_count = write_rows_to_csv(participants)
 
                 if rows_count > 0 and config.CSV_CHAT_ID and config.CSV_FILE:
+                    header_message = build_ranking_caption()
                     await app.send_document(config.CSV_CHAT_ID, config.CSV_FILE,
                             caption=header_message)
 
-            final_message, winner_photo = create_ranking(participants, header_message)
+            final_message, winner_photo = create_ranking(participants)
 
             if config.FINAL_MESSAGE_CHAT_ID:
 
@@ -518,7 +518,7 @@ def get_winners(participants):
 
     return winners
 
-def create_ranking(participants, header_message, unique_ranks = False, sort = True):
+def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
 
     logging.info("Create ranking (%d Participants)", len(participants))
@@ -535,7 +535,8 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
     last_count = 0
     winner_photo = ""
     final_message = ""
-    ranking_winner = False
+    templ_winner = "Unbekannt"
+    templ_count = 0
 
     i = 1
     for winner in winners:
@@ -585,8 +586,8 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
 
         if rank == 1:
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
-            ranking_winner = winner_display_name
-            ranking_count = winner_count
+            templ_winner = winner_display_name
+            templ_count = winner_count
         else:
             final_message = final_message + "\n"
 
@@ -594,16 +595,18 @@ def create_ranking(participants, header_message, unique_ranks = False, sort = Tr
         if i > config.CONTEST_MAX_RANKS:
             break
 
+    header_message = build_ranking_caption()
+
     # update placeholder
     if "TEMPLATE_WINNER" in header_message:
         header_message = header_message.replace(
             r"{TEMPLATE_WINNER}",
-            ranking_winner
+            templ_winner
         )
     if "TEMPLATE_VOTES" in header_message:
         header_message = header_message.replace(
             r"{TEMPLATE_VOTES}",
-            str(ranking_count)
+            str(templ_count)
         )
 
     # build final message
@@ -753,9 +756,8 @@ async def create_poll():
     winners = get_csv_daily_winners()
 
     # create the ranking message
-    header_message = build_ranking_caption()
     ranking_winners = copy.deepcopy(winners)
-    final_message, _winner_photo = create_ranking(ranking_winners, header_message, True, False)
+    final_message, _winner_photo = create_ranking(ranking_winners, True, False)
 
     # create numbered photos from winners
     media_group = []
@@ -787,7 +789,7 @@ async def create_poll():
 
             if rank == 1:
                 poll_end_date = winner_date_formatted
-                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
+                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS-1)
                 poll_start_date = poll_start_date.strftime("%d.%m.%Y")
                 logging.info("poll start date found: %s", poll_start_date)
 
@@ -896,12 +898,9 @@ def create_numbered_photo(photo, number):
 
 async def create_csv_ranking():
     """Run collect data from CSV files mode"""
-    header_message = build_ranking_caption()
-
-    # Get winners from participants and create final message
     csv_participants = get_csv_participants()
 
-    final_message, winner_photo = create_ranking(csv_participants, header_message)
+    final_message, winner_photo = create_ranking(csv_participants)
 
     # send ranking message to given chat
     if config.FINAL_MESSAGE_CHAT_ID:
@@ -958,34 +957,41 @@ def get_csv_participants():
 
         csv_dict = csv.DictReader(csvfile_single)
 
+        i = 0
         for row in csv_dict:
+            i += 1
             # check if row was in desired timeframe
-            participant_time = build_strptime(str(row['Timestamp']))
-            participant_difftime = contest_time - participant_time
+            row_time = build_strptime(str(row['Timestamp']))
+            row_difftime = contest_time - row_time
 
-            if ( participant_difftime.days < config.CONTEST_DAYS
-                    and not participant_difftime.days < 0 ):
+            if ( row_difftime.days < config.CONTEST_DAYS
+                    and not row_difftime.days < 0 ):
 
                 duplicate = False
 
                 # check if winner was already found
                 for participant in csv_participants:
 
-                    # check for same post in different CSV files
-                    if row['Postlink'] == participant["postlink"]:
-                        duplicate = True
+                    if config.RANK_MEMES:
+                        if row['Postlink'] == participant["postlink"]:
+                            duplicate = True
+                    else:
+                        # check if User already found and add stats
+                        if row['Username'].lower() == participant["author"].lower():
+                            duplicate = True
+                            participant["count"] += int(row['Count'])
+                            participant["views"] += int(row['Views'])
 
-                    # check if User already found and add stats
-                    elif ( not config.RANK_MEMES
-                            and row['Username'].lower() == participant["author"].lower() ):
-                        participant["count"] += int(row['Count'])
-                        participant["views"] += int(row['Views'])
-                        duplicate = True
+                            participant_time = build_strptime(str(participant["date"]))
+                            if participant_time < row_time:
+                                participant["date"] = row['Timestamp']
 
                 if not duplicate:
                     # add participant to array
                     csv_participant = create_csv_participant(row)
                     csv_participants.append(csv_participant)
+
+        logging.info("Read %d rows from %s", i, config.CSV_FILE)
 
     return csv_participants
 
@@ -1011,6 +1017,7 @@ def get_csv_daily_winners():
 
         csv_winner, _participants = get_winner(daily_participants)
         if csv_winner:
+            logging.info("Add CSV Winner %s from %s", csv_winner['author'], csv_winner['date'])
             csv_winners.append(csv_winner)
 
         i += 1

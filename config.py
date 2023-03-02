@@ -53,6 +53,9 @@ FINAL_MESSAGE_CHAT_ID = False
 # Set True or False
 PARTITICPANTS_FROM_CSV = False
 
+# Used to allow duplicates to collect historical data
+PARTICIPANT_DUPLICATES = False
+
 # link the ranked post
 # in final message on the result counter
 POST_LINK = True

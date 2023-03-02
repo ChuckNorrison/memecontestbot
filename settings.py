@@ -106,6 +106,7 @@ def load_config():
     config.POST_PARTICIPANTS_CHAT_ID    = getattr(config, 'POST_PARTICIPANTS_CHAT_ID', False)
     config.CSV_FILE                     = getattr(config, 'CSV_FILE', "contest.csv")
     config.RANKING_WINNER_SUFFIX        = getattr(config, 'RANKING_WINNER_SUFFIX', "🏅")
+    config.PARTICIPANT_DUPLICATES       = getattr(config, 'PARTICIPANT_DUPLICATES', False)
 
     return config
 

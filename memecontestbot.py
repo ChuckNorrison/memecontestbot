@@ -46,7 +46,7 @@ async def main():
 
     if config.PARTITICPANTS_FROM_CSV:
         # CSV Mode: Create a ranking message from CSV data
-        await create_csv_ranking()
+        await create_ranking_from_csv()
 
         sys.exit()
 
@@ -178,7 +178,7 @@ async def get_participants():
 
     if config.POST_PARTICIPANTS_CHAT_ID:
         # get all unique file ids from CSV
-        unique_ids = get_csv_unique_ids()
+        unique_ids = get_unique_ids_from_csv()
         # init senders array to prevent abuse
         message_senders = []
 
@@ -216,13 +216,14 @@ async def get_participants():
                     continue
                 message_senders.append(message_sender)
 
-            participants, duplicate = check_participant_duplicates(
-                participants,
-                message,
-                message_author
-            )
+            if not config.PARTICIPANT_DUPLICATES:
+                participants, duplicate = check_participant_duplicates(
+                    participants,
+                    message,
+                    message_author
+                )
 
-            if not duplicate:
+            if config.PARTICIPANT_DUPLICATES or not duplicate:
                 # Ranking mode: append to participants array to create ranking
                 new_participant = create_participant(message, message_author)
                 participants.append(new_participant)
@@ -260,6 +261,8 @@ def create_participant(message, author):
             logging.error(ex_attr)
         except TypeError as ex_type:
             logging.error(ex_type)
+        except IndexError as ex_index:
+            logging.error(ex_index)
 
     participant = {
         "count": message_counter,
@@ -753,7 +756,7 @@ async def evaluate_poll():
 async def create_poll():
     '''Create a poll to vote a winner from'''
 
-    winners = get_csv_daily_winners()
+    winners = get_daily_winners_from_csv()
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)
@@ -896,9 +899,9 @@ def create_numbered_photo(photo, number):
 # CSV based ranking methods
 ###########################
 
-async def create_csv_ranking():
+async def create_ranking_from_csv():
     """Run collect data from CSV files mode"""
-    csv_participants = get_csv_participants()
+    csv_participants = get_participants_from_csv()
 
     final_message, winner_photo = create_ranking(csv_participants)
 
@@ -935,7 +938,7 @@ async def create_csv_ranking():
                         " Can not find winner photo for final overall ranking message")
                 logging.warning(log_msg)
 
-def create_csv_participant(csv_row):
+def create_participant_from_csv(csv_row):
     """Create a participant dict from CSV data"""
 
     participant = {
@@ -948,7 +951,7 @@ def create_csv_participant(csv_row):
 
     return participant
 
-def get_csv_participants():
+def get_participants_from_csv():
     """Collect participants from CSV file"""
     csv_participants = []
     contest_time = build_strptime(config.CONTEST_DATE)
@@ -988,20 +991,20 @@ def get_csv_participants():
 
                 if not duplicate:
                     # add participant to array
-                    csv_participant = create_csv_participant(row)
+                    csv_participant = create_participant_from_csv(row)
                     csv_participants.append(csv_participant)
 
         logging.info("Read %d rows from %s", i, config.CSV_FILE)
 
     return csv_participants
 
-def get_csv_daily_winners():
+def get_daily_winners_from_csv():
     '''get daily based winners from CSV'''
     csv_winners = []
     contest_time = build_strptime(config.CONTEST_DATE)
 
     # Read participants from CSV data for all contest days
-    csv_participants = get_csv_participants()
+    csv_participants = get_participants_from_csv()
 
     # find a winner for each contest day
     i = 1
@@ -1024,7 +1027,7 @@ def get_csv_daily_winners():
 
     return csv_winners
 
-def get_csv_unique_ids():
+def get_unique_ids_from_csv():
     """Collect unique file ids from CSV file"""
     csv_unique_ids = []
 
@@ -1143,4 +1146,5 @@ def get_chunks(wrapstring, maxlength, pattern = "#"):
         start = end
     yield wrapstring[start:]
 
-app.run(main())
+if __name__ == "__main__":
+    app.run(main())

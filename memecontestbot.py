@@ -44,6 +44,11 @@ async def main():
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
     logging.info("Start meme contest bot version '%s' at %s", VERSION_NUMBER, formatted_date)
 
+    if config.PARTICIPANTS_LIST:
+        get_inactivities_from_csv()
+
+        sys.exit()
+
     if config.PARTITICPANTS_FROM_CSV:
         # CSV Mode: Create a ranking message from CSV data
         await create_ranking_from_csv()
@@ -1053,6 +1058,36 @@ def get_unique_ids_from_csv():
         logging.warning("No CSV to recheck known unique IDs (%s)", config.CSV_FILE)
 
     return csv_unique_ids
+
+def get_inactivities_from_csv():
+    '''Return cards to mark inactive participants'''
+    csv_participants = get_participants_from_csv()
+
+    logging.info("Found CSV data of %d Participants", len(csv_participants))
+    contest_time = build_strptime(config.CONTEST_DATE)
+    yellow_cards = []
+    orange_cards = []
+
+    for participant in csv_participants:
+        participant_time = build_strptime(str(participant['date']))
+        participant_difftime = contest_time - participant_time
+
+        if participant_difftime.days > 7 and participant_difftime.days <= 28:
+            logging.info(
+                "yellow card for %s cause of %d days of inactivity",
+                participant['author'],
+                participant_difftime.days
+            )
+            yellow_cards.append(participant)
+        elif participant_difftime.days >= 29:
+            logging.info(
+                "orange card for %s cause of %d days of inactivity",
+                participant['author'],
+                participant_difftime.days
+            )
+            orange_cards.append(participant)
+
+    return yellow_cards, orange_cards
 
 ##################
 # Common methods

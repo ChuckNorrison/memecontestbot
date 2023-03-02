@@ -53,6 +53,10 @@ FINAL_MESSAGE_CHAT_ID = False
 # Set True or False
 PARTITICPANTS_FROM_CSV = False
 
+# Print eternal list of participants and override everything else
+# Needs at least 30 Days of CSV Data to collect
+PARTICIPANTS_LIST = True
+
 # Used to allow duplicates to collect historical data
 PARTICIPANT_DUPLICATES = False
 

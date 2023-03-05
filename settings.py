@@ -94,7 +94,7 @@ def load_config():
         f"🏆 [{config.EXCLUDE_PATTERN[0]}](https://t.me/mychannelname) 🏆"
     )
     config.FINAL_MESSAGE_CHAT_ID        = getattr(config, 'FINAL_MESSAGE_CHAT_ID', False)
-    config.PARTITICPANTS_FROM_CSV       = getattr(config, 'PARTITICPANTS_FROM_CSV', False)
+    config.PARTICIPANTS_FROM_CSV       = getattr(config, 'PARTICIPANTS_FROM_CSV', False)
     config.POST_LINK                    = getattr(config, 'POST_LINK', True)
     config.CREATE_CSV                   = getattr(config, 'CREATE_CSV', False)
     config.CSV_CHAT_ID                  = getattr(

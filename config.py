@@ -51,7 +51,7 @@ FINAL_MESSAGE_CHAT_ID = False
 # Generate a ranking message based on CSV data
 # could be useful for monthly rankings
 # Set True or False
-PARTITICPANTS_FROM_CSV = False
+PARTICIPANTS_FROM_CSV = False
 
 # Print eternal list of participants and override everything else
 # Needs at least 30 Days of CSV Data to collect

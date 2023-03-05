@@ -49,12 +49,6 @@ async def main():
 
         sys.exit()
 
-    if config.PARTITICPANTS_FROM_CSV:
-        # CSV Mode: Create a ranking message from CSV data
-        await create_ranking_from_csv()
-
-        sys.exit()
-
     async with app:
 
         if config.CONTEST_POLL_RESULT:
@@ -66,6 +60,12 @@ async def main():
         if config.CONTEST_POLL:
             # Poll mode: Create a voting poll for winners
             await create_poll()
+
+            sys.exit()
+
+        if config.PARTICIPANTS_FROM_CSV:
+            # CSV Mode: Create a ranking message from CSV data
+            await create_ranking_from_csv()
 
             sys.exit()
 
@@ -526,6 +526,37 @@ def get_winners(participants):
 
     return winners
 
+async def get_daily_winners():
+    '''get daily based winners, only one winner each day'''
+    daily_winners = []
+    contest_time = build_strptime(config.CONTEST_DATE)
+
+    if config.PARTICIPANTS_FROM_CSV:
+        participants = get_participants_from_csv()
+    else:
+        participants = await get_participants()
+
+    # find a winner for each contest day
+    i = 1
+    while i <= config.CONTEST_DAYS+1:
+        daily_ranking_time = contest_time-timedelta(days=i)
+        daily_participants = []
+
+        for participant in participants:
+            participant_time = build_strptime(str(participant['date']))
+
+            if (participant_time - daily_ranking_time).days == 0:
+                daily_participants.append(participant)
+
+        winner, _participants = get_winner(daily_participants)
+        if winner:
+            logging.info("Add Winner %s from %s", winner['author'], winner['date'])
+            daily_winners.append(winner)
+
+        i += 1
+
+    return daily_winners
+
 def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
 
@@ -635,7 +666,7 @@ def create_ranking(participants, unique_ranks = False, sort = True):
 # Poll mode methods
 ###########################
 
-async def find_poll():
+async def find_open_poll():
     '''search for the last open poll'''
     poll_message = False
 
@@ -660,7 +691,7 @@ async def find_poll():
 
 async def evaluate_poll():
     '''search for the last open poll and evaluate'''
-    poll_message = await find_poll()
+    poll_message = await find_open_poll()
 
     if not poll_message:
         return False
@@ -736,7 +767,7 @@ async def evaluate_poll():
             photo_id = get_photo_id_from_msg(message)
             if photo_id:
                 contest_time = build_strptime(config.CONTEST_DATE)
-                poll_time = build_timeframe(contest_time, config.CONTEST_DAYS+1)
+                poll_time = build_timeframe(contest_time-timedelta(days=1), config.CONTEST_DAYS)
                 message_author = get_author(message)
 
                 final_message = (
@@ -761,7 +792,7 @@ async def evaluate_poll():
 async def create_poll():
     '''Create a poll to vote a winner from'''
 
-    winners = get_daily_winners_from_csv()
+    winners = await get_daily_winners()
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)
@@ -778,6 +809,9 @@ async def create_poll():
     for winner in winners:
         winner_date = build_strptime(winner['date'])
         winner_date_formatted = winner_date.strftime("%d.%m.%Y")
+
+        if not "postlink" in winner:
+            winner["postlink"] = build_postlink(winner)
 
         logging.info("Create numbered image %s from %s", rank, winner["postlink"])
 
@@ -918,30 +952,29 @@ async def create_ranking_from_csv():
                     str(config.CSV_FILE))
             sys.exit()
 
-        async with app:
-            if winner_photo != "" and config.POST_WINNER_PHOTO:
+        if winner_photo != "" and config.POST_WINNER_PHOTO:
 
-                # check if winner_photo is a postlink
-                if "https://t.me/c/" in winner_photo:
-                    photo_id = await get_photo_id_from_postlink(winner_photo)
-                    if photo_id:
-                        # set photo id
-                        winner_photo = photo_id
+            # check if winner_photo is a postlink
+            if "https://t.me/c/" in winner_photo:
+                photo_id = await get_photo_id_from_postlink(winner_photo)
+                if photo_id:
+                    # set photo id
+                    winner_photo = photo_id
 
-                await send_photo_caption(
-                    config.FINAL_MESSAGE_CHAT_ID,
-                    winner_photo,
-                    final_message
-                )
+            await send_photo_caption(
+                config.FINAL_MESSAGE_CHAT_ID,
+                winner_photo,
+                final_message
+            )
 
-            elif winner_photo != "" and not config.POST_WINNER_PHOTO:
-                await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
-                        parse_mode=enums.ParseMode.MARKDOWN)
+        elif winner_photo != "" and not config.POST_WINNER_PHOTO:
+            await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
+                    parse_mode=enums.ParseMode.MARKDOWN)
 
-            else:
-                log_msg = ("Something went wrong!"
-                        " Can not find winner photo for final overall ranking message")
-                logging.warning(log_msg)
+        else:
+            log_msg = ("Something went wrong!"
+                    " Can not find winner photo for final overall ranking message")
+            logging.warning(log_msg)
 
 def create_participant_from_csv(csv_row):
     """Create a participant dict from CSV data"""
@@ -1002,35 +1035,6 @@ def get_participants_from_csv():
         logging.info("Read %d rows from %s", i, config.CSV_FILE)
 
     return csv_participants
-
-def get_daily_winners_from_csv():
-    '''get daily based winners from CSV'''
-    csv_winners = []
-    contest_time = build_strptime(config.CONTEST_DATE)
-
-    # Read participants from CSV data for all contest days
-    csv_participants = get_participants_from_csv()
-
-    # find a winner for each contest day
-    i = 1
-    while i <= config.CONTEST_DAYS+1:
-        daily_ranking_time = contest_time-timedelta(days=i)
-        daily_participants = []
-
-        for csv_participant in csv_participants:
-            participant_time = build_strptime(str(csv_participant['date']))
-
-            if (participant_time - daily_ranking_time).days == 0:
-                daily_participants.append(csv_participant)
-
-        csv_winner, _participants = get_winner(daily_participants)
-        if csv_winner:
-            logging.info("Add CSV Winner %s from %s", csv_winner['author'], csv_winner['date'])
-            csv_winners.append(csv_winner)
-
-        i += 1
-
-    return csv_winners
 
 def get_unique_ids_from_csv():
     """Collect unique file ids from CSV file"""

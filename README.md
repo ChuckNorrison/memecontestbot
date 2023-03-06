@@ -1,7 +1,7 @@
 # memecontestbot
 [![Pylint](https://github.com/ChuckNorrison/memecontestbot/actions/workflows/pylint.yml/badge.svg)](https://github.com/ChuckNorrison/memecontestbot/actions/workflows/pylint.yml)
 
-A telegram bot for channel or group ranking based on reactions on photo messages like a meme contest.
+A telegram bot for channel or group, to create a ranking message based on photo reactions like a meme contest.
 
 The Bot can be set as cron to post a ranking automatically. 
 Daily, weekly or monthly ranking messages for your Telegram Channel or Group.
@@ -14,9 +14,9 @@ Daily, weekly or monthly ranking messages for your Telegram Channel or Group.
 - Enable `CREATE_CSV`, to log all message posts found with amount of reactions and views count into a CSV file.
 - Enable `RANK_MEMES` to collect votes based on Memes. Disable for Author based ranking, so all votes gets added.
 - Collect Photos from a Group `CHAT_ID` and post them to another Chat given as `POST_PARTICIPANTS_CHAT_ID`
-- Use `PARTITICPANTS_FROM_CSV` to create ranking from CSV data instead of chat data
+- Use `PARTICIPANTS_FROM_CSV` to create ranking from CSV data instead of chat data
 - Enable `CONTEST_POLL` to create a ranking with poll and vote from numbered images
-- Enable `CONTEST_POLL_RESULT` to evaluate last poll and find a winner
+- Enable `CONTEST_POLL_RESULT` to evaluate last poll and post the winner
 
 ## Setup Telegram App
 The first step requires you to obtain a valid Telegram API key (api_id and api_hash pair):
@@ -43,10 +43,10 @@ If you already run some python projects, keep in mind to use a [venv](https://do
 ## Usage
 Start the bot with `python3 memecontestbot.py`. 
 
-On first start it will ask for your corresponding phone number to act as userbot. The bot will use your telegram account and so it will be visible with your telegram user. Delete the file `my_account.session`, to reset api_id and api_hash.
+On first start it will ask for your corresponding phone number to act as userbot. The bot will use your telegram account and so it will be visible with your telegram user. Delete the file `my_account.session`, to reset authentication.
 
 Chats should be configured to only accept a single reaction emoji (multiple reaction emojis are not supported yet).
 
 Call the bot with argument `-c` or `--config` and a path to desired configfile to override default `config.py`.
 
-More detailed infos for Telegram API used can be found in the [pyrogram docs](https://docs.pyrogram.org/start/setup)
+More detailed infos for Telegram API can be found in the [pyrogram docs](https://docs.pyrogram.org/start/setup)

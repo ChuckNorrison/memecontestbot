@@ -326,6 +326,12 @@ def check_participant_duplicates(participants, message, message_author):
                     participant["date"] = str(message.date)
                     participant["id"] = message.id
 
+                    logging.info("Update Participant %s (%d < %d votes from %s)",
+                            participant["author"],
+                            participant["count"],
+                            message_reactions,
+                            participant["date"])
+
                     # update stats
                     participant["count"] = message_reactions
                     participant["views"] = message_views
@@ -347,16 +353,16 @@ def check_participant_duplicates(participants, message, message_author):
 
                 participant["date"] = str(message.date)
 
+                logging.info("Update Participant %s (%d + %d = %d votes from %s)",
+                        participant["author"],
+                        participant["count"],
+                        message_reactions,
+                        (participant["count"] + message_reactions),
+                        participant["date"])
+
                 # update reaction counter and views, sum up
                 participant["count"] += message_reactions
                 participant["views"] += message_views
-
-            logging.info("Update Participant %s (%d + %d = %d votes from %s)",
-                    participant['author'],
-                    participant['count'],
-                    message_reactions,
-                    (participant['count'] + message_reactions),
-                    participant['date'])
 
         elif message_author == "None":
             duplicate = True

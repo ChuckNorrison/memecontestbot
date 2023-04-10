@@ -129,7 +129,7 @@ async def send_collected_photo(message, message_author):
                     message.photo.file_id,
                     photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
         except FloodWait as ex_flood:
-            logging.warning("Wait %s to send more photos...", ex_flood.value)
+            logging.warning("Wait %s seconds to send more photos...", ex_flood.value)
             await asyncio.sleep(ex_flood.value)
             # retry
             await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
@@ -279,15 +279,10 @@ def create_participant(message, author):
         "id": message.id,
         "chat_id": message.chat.id
     }
-
-    return participant
-
-def update_participant(participant, message):
-    """Update existent participant without stats"""
-    participant["photo_id"] = message.photo.file_id
-    participant["unique_id"] = message.photo.file_unique_id
-    participant["date"] = str(message.date)
-    participant["id"] = message.id
+    logging.info("Create Participant %s (%d votes from %s)",
+            participant['author'],
+            participant['count'],
+            participant['date'])
 
     return participant
 
@@ -326,7 +321,10 @@ def check_participant_duplicates(participants, message, message_author):
                 # only one post allowed (prefer best)
                 if participant["count"] < message_reactions:
                     # update existent meme data
-                    participant = update_participant(participant, message)
+                    participant["photo_id"] = message.photo.file_id
+                    participant["unique_id"] = message.photo.file_unique_id
+                    participant["date"] = str(message.date)
+                    participant["id"] = message.id
 
                     # update stats
                     participant["count"] = message_reactions
@@ -342,12 +340,23 @@ def check_participant_duplicates(participants, message, message_author):
                     highest_count = post_count
 
                 if highest_count < message_reactions:
-                    # replace existent meme data
-                    participant = update_participant(participant, message)
+                    # replace existent meme data with best meme data
+                    participant["photo_id"] = message.photo.file_id
+                    participant["unique_id"] = message.photo.file_unique_id
+                    participant["id"] = message.id
+
+                participant["date"] = str(message.date)
 
                 # update reaction counter and views, sum up
                 participant["count"] += message_reactions
                 participant["views"] += message_views
+
+            logging.info("Update Participant %s (%d + %d = %d votes from %s)",
+                    participant['author'],
+                    participant['count'],
+                    message_reactions,
+                    (participant['count'] + message_reactions),
+                    participant['date'])
 
         elif message_author == "None":
             duplicate = True

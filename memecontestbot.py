@@ -553,8 +553,10 @@ async def get_daily_winners():
 
         for participant in participants:
             participant_time = build_strptime(str(participant['date']))
+            participant_diff_time = contest_time - participant_time
 
-            if (participant_time - daily_ranking_time).days == 0:
+            if ( (participant_time - daily_ranking_time).days == 0
+                    and (participant_diff_time.days > 0) ):
                 daily_participants.append(participant)
 
         winner, _participants = get_winner(daily_participants)

@@ -581,6 +581,7 @@ def create_ranking(participants, unique_ranks = False, sort = True):
 
     # get winners
     if sort:
+        participants = sorted(participants, key=lambda x: x['views'], reverse = True)
         winners = get_winners(participants)
     else:
         # ranking in poll mode

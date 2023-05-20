@@ -574,7 +574,7 @@ async def get_daily_winners():
 
     return daily_winners
 
-def create_ranking(participants, unique_ranks = False, sort = True):
+async def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
 
     logging.info("Create ranking (%d Participants)", len(participants))

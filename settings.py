@@ -85,6 +85,7 @@ def load_config():
     config.CONTEST_MAX_RANKS            = getattr(config, 'CONTEST_MAX_RANKS', 10)
     config.CONTEST_POLL                 = getattr(config, 'CONTEST_POLL', False)
     config.CONTEST_POLL_RESULT          = getattr(config, 'CONTEST_POLL_RESULT', False)
+    config.CONTEST_HIGHSCORE            = getattr(config, 'CONTEST_HIGHSCORE', False)
     config.EXCLUDE_PATTERN              = getattr(
         config, 'EXCLUDE_PATTERN', ["Meme Contest", "Tagessieger", "Rangliste"]
     )

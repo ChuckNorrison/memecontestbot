@@ -83,7 +83,7 @@ async def main():
                     await app.send_document(config.CSV_CHAT_ID, config.CSV_FILE,
                             caption=header_message)
 
-            final_message, winner_photo = create_ranking(participants)
+            final_message, winner_photo = await create_ranking(participants)
 
             if config.FINAL_MESSAGE_CHAT_ID:
 
@@ -645,6 +645,8 @@ def create_ranking(participants, unique_ranks = False, sort = True):
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
             templ_winner = winner_display_name
             templ_count = winner_count
+            if config.CONTEST_HIGHSCORE:
+                await update_highscore(winner_display_name)
         else:
             final_message = final_message + "\n"
 
@@ -679,6 +681,128 @@ def create_ranking(participants, unique_ranks = False, sort = True):
 
     return final_message, winner_photo
 
+async def update_highscore(winner_name):
+    """Update the highscore message"""
+    logging.info("Update highscore for %s", winner_name)
+    message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
+    if message:
+        if message.text:
+            highscore = message.text
+            if highscore:
+                # find and edit the winner
+                new_highscore = ""
+                highscore_lines = highscore.split("\n")
+                found_winner = False
+
+                count_ranks = 0
+                count_lines = 0
+                next_line = 0
+                rank_prefix = ""
+                for line in highscore_lines:
+                    count_lines += 1
+                    if len(line) >= 2:
+                        if line[0].isdigit() or line[1].isdigit():
+                            if not line[0].isdigit():
+                                rank_prefix = line[0]
+                            count_ranks += 1
+                            next_line = count_lines
+
+                    if line.lower().find(winner_name.lower()) > 0:
+                        found_winner = True
+                        line, highscore_lines[next_line] = update_highscore_line(
+                            line,
+                            highscore_lines[next_line]
+                        )
+                logging.info("Update highscore %d ranks found", count_ranks)
+
+                if not found_winner:
+                    # append to highscore
+                    if highscore_lines[next_line] == "":
+                        offset = 9 - len(str(count_ranks))
+                        new_line = (str(rank_prefix)
+                            + str(count_ranks+1)
+                            + "  "
+                            + str(winner_name)
+                            + "\n"
+                            + " " * offset
+                            + str(config.RANKING_WINNER_SUFFIX)
+                            + "\n")
+                        highscore_lines[next_line] += new_line
+                        logging.info("Update highscore append new %s", highscore_lines[next_line])
+
+                for line in highscore_lines:
+                    new_highscore = new_highscore + line + "\n"
+
+                # finally edit highscore
+                if not new_highscore in highscore:
+                    chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
+                    message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
+                    await app.edit_message_text(chat_id, message_id, new_highscore)
+                else:
+                    logging.warning("no difference for highscore found")
+        else:
+            return False
+
+def update_highscore_line(line, next_line):
+    """Update the line in highscore"""
+    medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
+    if medal_pos > 0:
+        if not line[medal_pos-1] == "x":
+            # medal already exist, add medal counter
+            line = line.replace(config.RANKING_WINNER_SUFFIX,
+                "  2x"+config.RANKING_WINNER_SUFFIX
+            )
+            logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
+        else:
+            # medal counter found, increase
+            line = update_highscore_medal_counter(line)
+    else:
+        # check next line for medals
+        medal_pos = next_line.find(config.RANKING_WINNER_SUFFIX)
+        if medal_pos > 0:
+            if not next_line[medal_pos-1] == "x":
+                # medal already exist, add medal counter
+                next_line = next_line.replace(config.RANKING_WINNER_SUFFIX,
+                    "  2x"+config.RANKING_WINNER_SUFFIX
+                )
+                logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
+            else:
+                # medal counter found, increase
+                next_line = update_highscore_medal_counter(next_line)
+        else:
+            # first medal, just append
+            line += config.RANKING_WINNER_SUFFIX
+    return line, next_line
+
+def update_highscore_medal_counter(line):
+    """Find and update the medal counter"""
+    found_medal = False
+    found_counter = False
+    num_string = ""
+
+    for char in reversed(line):
+        if char == config.RANKING_WINNER_SUFFIX:
+            found_medal = True
+
+        if found_medal and char.isdigit():
+            found_counter = True
+
+        if found_counter and char.isdigit():
+            num_string += char
+
+        if found_counter and not char.isdigit():
+            break
+
+    medal_counter = ""
+    for num in reversed(num_string):
+        medal_counter = medal_counter + num
+
+    search_string = medal_counter + "x" + config.RANKING_WINNER_SUFFIX
+    replace_string = str(int(medal_counter) + 1) + "x" + config.RANKING_WINNER_SUFFIX
+    line = line.replace(search_string, replace_string)
+    logging.info("Update highscore medals %s -> %s", search_string, replace_string)
+
+    return line
 
 ###########################
 # Poll mode methods

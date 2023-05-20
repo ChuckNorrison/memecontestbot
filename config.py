@@ -32,6 +32,10 @@ CONTEST_POLL = False
 # True or False
 CONTEST_POLL_RESULT = False
 
+# Update the highscore message with medals for winner
+# False or postlink (https://t.me/c/{chat_id}/{message_id})
+CONTEST_HIGHSCORE = False
+
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]

@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 import asyncio
 from pyrogram import Client, enums
 from pyrogram.types import InputMediaPhoto
-from pyrogram.errors import FloodWait
+from pyrogram.errors import FloodWait, MessageNotModified
 
 # image manipulation api
 from PIL import Image, ImageDraw, ImageFont
@@ -687,7 +687,6 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
 
 async def update_highscore(winner_name):
     """Update the highscore message"""
-    logging.info("Update highscore for %s", winner_name)
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
     if message:
         if message.text:
@@ -696,6 +695,7 @@ async def update_highscore(winner_name):
                 # find and edit the winner
                 new_highscore = ""
                 highscore_lines = highscore.split("\n")
+                new_highscore_lines = []
                 found_winner = False
 
                 count_ranks = 0
@@ -711,17 +711,22 @@ async def update_highscore(winner_name):
                             count_ranks += 1
                             next_line = count_lines
 
-                    if line.lower().find(winner_name.lower()) > 0:
-                        found_winner = True
-                        line, highscore_lines[next_line] = update_highscore_line(
-                            line,
-                            highscore_lines[next_line]
-                        )
-                logging.info("Update highscore %d ranks found", count_ranks)
+                            if line.lower().find(winner_name.lower()) > 0:
+                                found_winner = True
+                                logging.info("Update highscore for %s (ranks: %d)",
+                                    winner_name,
+                                    count_ranks
+                                )
+                                line, highscore_lines[next_line] = update_highscore_line(
+                                    line,
+                                    highscore_lines[next_line]
+                                )
+                    new_highscore_lines.append(line)
 
                 if not found_winner:
                     # append to highscore
-                    if highscore_lines[next_line] == "":
+                    if new_highscore_lines[next_line+1] == "":
+                        found_winner = True
                         offset = 9 - len(str(count_ranks))
                         new_line = (str(rank_prefix)
                             + str(count_ranks+1)
@@ -731,19 +736,23 @@ async def update_highscore(winner_name):
                             + " " * offset
                             + str(config.RANKING_WINNER_SUFFIX)
                             + "\n")
-                        highscore_lines[next_line] += new_line
-                        logging.info("Update highscore append new %s", highscore_lines[next_line])
+                        new_highscore_lines[next_line+1] += new_line
+                        logging.info("Update highscore append new %s",
+                            new_highscore_lines[next_line+1]
+                        )
 
-                for line in highscore_lines:
-                    new_highscore = new_highscore + line + "\n"
+                new_highscore = "\n".join(new_highscore_lines)
 
                 # finally edit highscore
-                if not new_highscore in highscore:
+                if found_winner:
                     chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
                     message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
-                    await app.edit_message_text(chat_id, message_id, new_highscore)
+                    try:
+                        await app.edit_message_text(chat_id, message_id, new_highscore)
+                    except MessageNotModified as ex_modified:
+                        logging.warning(ex_modified)
                 else:
-                    logging.warning("no difference for highscore found")
+                    logging.warning("Update highscore: winner not found")
         else:
             return False
 
@@ -754,7 +763,8 @@ def update_highscore_line(line, next_line):
         if not line[medal_pos-1] == "x":
             # medal already exist, add medal counter
             line = line.replace(config.RANKING_WINNER_SUFFIX,
-                "  2x"+config.RANKING_WINNER_SUFFIX
+                "2x"+config.RANKING_WINNER_SUFFIX,
+                1
             )
             logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
         else:
@@ -767,7 +777,8 @@ def update_highscore_line(line, next_line):
             if not next_line[medal_pos-1] == "x":
                 # medal already exist, add medal counter
                 next_line = next_line.replace(config.RANKING_WINNER_SUFFIX,
-                    "  2x"+config.RANKING_WINNER_SUFFIX
+                    "  2x"+config.RANKING_WINNER_SUFFIX,
+                    1
                 )
                 logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
             else:

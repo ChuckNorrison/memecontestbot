@@ -122,6 +122,10 @@ async def send_collected_photo(message, message_author):
     else:
         photo_caption = message_author
 
+    # add footer
+    if config.FINAL_MESSAGE_FOOTER != "":
+        photo_caption = photo_caption + "\n\n" + config.FINAL_MESSAGE_FOOTER
+
     # send the photo
     if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
         try:

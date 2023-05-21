@@ -951,6 +951,10 @@ async def evaluate_poll():
                     final_message, parse_mode=enums.ParseMode.MARKDOWN,
                     reply_to_message_id=poll_reply_message_id)
 
+                if config.CONTEST_HIGHSCORE:
+                    winner_name = "@"+message_author
+                    await update_highscore(winner_name)
+
                 return True
     else:
         return False

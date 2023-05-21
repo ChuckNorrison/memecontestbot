@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 """
-Simple Bot to analyze telegram post reactions and create a ranking.
-Can be configured for daily or weekly rankings
-(get_chat_history has a limit of posts to return from chat).
+Bot to analyze telegram post reactions and create a ranking.
+Can be configured for daily and weekly rankings,
+collect and repost messages, log results to CSV or
+update a highscore message.
 
 Usage:
-Start bot to create a nice ranking.
+Start bot to create a ranking message
+or set some configurations for advanced usage
 """
 
 # default imports
@@ -31,7 +33,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.2.9"
+VERSION_NUMBER = "v1.3.0"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -104,8 +106,7 @@ async def main():
                     logging.warning(log_msg)
 
 async def send_collected_photo(message, message_author):
-    '''send collected photo from message to POST_PARTICIPANTS_CHAT_ID'''
-
+    """send collected photo from message to POST_PARTICIPANTS_CHAT_ID"""
     if not config.SIGN_MESSAGES:
         message_author = "@" + message_author
     logging.info("Collect %s (message id: %s, unique id: %s)",
@@ -141,7 +142,7 @@ async def send_collected_photo(message, message_author):
                     photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
 
 async def send_photo_caption(chatid, photo, caption):
-    ''' split the photo caption into chunks if too long '''
+    """split the photo caption into chunks if too long"""
     chunks = get_chunks(caption, 2048)
     i = 0
     for chunk in chunks:
@@ -154,7 +155,7 @@ async def send_photo_caption(chatid, photo, caption):
         i += 1
 
 async def check_repost(message, unique_ids):
-    '''check unique file id'''
+    """check unique file id"""
     unique_check = False
     for unique_id in unique_ids:
         if unique_id[1] == message.photo.file_unique_id:
@@ -181,7 +182,7 @@ async def check_repost(message, unique_ids):
     return unique_check
 
 async def get_participants():
-    '''read chat history and return participants'''
+    """read chat history and return participants"""
     contest_time = build_strptime(config.CONTEST_DATE)
     participants = []
 
@@ -258,7 +259,6 @@ async def get_participants():
 
 def create_participant(message, author):
     """Return new participant as dict from message object"""
-    # initialize defaults
     message_counter = 0
     message_views = 0
 
@@ -291,8 +291,7 @@ def create_participant(message, author):
     return participant
 
 def check_participant_duplicates(participants, message, message_author):
-    '''check if participant was already found'''
-
+    """check if participant was already found"""
     message_reactions = get_reactions(message)
     if not message_reactions:
         return participants, True
@@ -422,7 +421,7 @@ def get_author(message):
     return message_author
 
 def get_sender(message):
-    '''Return sender from message object'''
+    """Return sender from message object"""
     message_sender = False
 
     try:
@@ -435,7 +434,7 @@ def get_sender(message):
     return message_sender
 
 def get_reactions(message):
-    '''get reactions from given message'''
+    """get reactions from given message"""
     message_reactions = 1
 
     if not config.POST_PARTICIPANTS_CHAT_ID:
@@ -449,8 +448,7 @@ def get_reactions(message):
     return message_reactions
 
 def build_ranking_caption():
-    """"Create header of final message"""
-
+    """Create header of final message"""
     if config.RANK_MEMES:
         header_contest_type = "Memes"
     else:
@@ -546,7 +544,7 @@ def get_winners(participants):
     return winners
 
 async def get_daily_winners():
-    '''get daily based winners, only one winner each day'''
+    """get daily based winners, only one winner each day"""
     daily_winners = []
     contest_time = build_strptime(config.CONTEST_DATE)
 
@@ -580,7 +578,6 @@ async def get_daily_winners():
 
 async def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
-
     logging.info("Create ranking (%d Participants)", len(participants))
 
     # get winners
@@ -685,75 +682,87 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
 
     return final_message, winner_photo
 
+###########################
+# Highscore methods
+###########################
+
 async def update_highscore(winner_name):
     """Update the highscore message"""
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
-    if message:
-        if message.text:
-            highscore = message.text
-            if highscore:
-                # find and edit the winner
-                new_highscore = ""
-                highscore_lines = highscore.split("\n")
-                new_highscore_lines = []
-                found_winner = False
+    if hasattr(message, 'text'):
+        highscore = message.text
+        if highscore:
+            # find and edit the winner
+            new_highscore = ""
+            highscore_lines = highscore.split("\n")
+            new_highscore_lines = []
+            found_winner = False
 
-                count_ranks = 0
-                count_lines = 0
-                next_line = 0
-                rank_prefix = ""
-                for line in highscore_lines:
-                    count_lines += 1
-                    if len(line) >= 2:
-                        if line[0].isdigit() or line[1].isdigit():
-                            if not line[0].isdigit():
-                                rank_prefix = line[0]
-                            count_ranks += 1
-                            next_line = count_lines
+            count_ranks = 0
+            count_lines = 0
+            next_line = 0
+            rank_prefix = ""
+            for line in highscore_lines:
+                count_lines += 1
+                if len(line) >= 2:
+                    if line[0].isdigit() or line[1].isdigit():
+                        # remember rank prefix like # if used
+                        if not line[0].isdigit():
+                            rank_prefix = line[0]
+                        count_ranks += 1
+                        next_line = count_lines
 
-                            if line.lower().find(winner_name.lower()) > 0:
-                                found_winner = True
-                                logging.info("Update highscore for %s (ranks: %d)",
-                                    winner_name,
-                                    count_ranks
-                                )
-                                line, highscore_lines[next_line] = update_highscore_line(
-                                    line,
-                                    highscore_lines[next_line]
-                                )
-                    new_highscore_lines.append(line)
+                        if line.lower().find(winner_name.lower()) > 0:
+                            found_winner = True
+                            logging.info("Update highscore for %s (ranks: %d)",
+                                winner_name,
+                                count_ranks
+                            )
+                            line, highscore_lines[next_line] = update_highscore_line(
+                                line,
+                                highscore_lines[next_line]
+                            )
+                # remember the line and modifications in a new array
+                new_highscore_lines.append(line)
 
-                if not found_winner:
-                    # append to highscore
-                    if new_highscore_lines[next_line+1] == "":
-                        found_winner = True
-                        offset = 9 - len(str(count_ranks))
-                        new_line = (str(rank_prefix)
-                            + str(count_ranks+1)
-                            + "  "
-                            + str(winner_name)
-                            + "\n"
-                            + " " * offset
-                            + str(config.RANKING_WINNER_SUFFIX)
-                            + "\n")
-                        new_highscore_lines[next_line+1] += new_line
-                        logging.info("Update highscore append new %s",
-                            new_highscore_lines[next_line+1]
-                        )
+            if not found_winner:
+                # append to highscore
+                if new_highscore_lines[next_line+1] == "":
+                    found_winner = True
+                    offset = 9 - len(str(count_ranks))
+                    new_line = (str(rank_prefix)
+                        + str(count_ranks+1)
+                        + "  "
+                        + str(winner_name)
+                        + "\n"
+                        + " " * offset
+                        + str(config.RANKING_WINNER_SUFFIX)
+                        + "\n")
+                    new_highscore_lines[next_line+1] += new_line
+                    logging.info("Update highscore append new %s",
+                        new_highscore_lines[next_line+1]
+                    )
 
-                new_highscore = "\n".join(new_highscore_lines)
+            # rebuild the highscore message from modified lines
+            new_highscore = "\n".join(new_highscore_lines)
 
-                # finally edit highscore
-                if found_winner:
-                    chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
-                    message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
-                    try:
-                        await app.edit_message_text(chat_id, message_id, new_highscore)
-                    except MessageNotModified as ex_modified:
-                        logging.warning(ex_modified)
-                else:
-                    logging.warning("Update highscore: winner not found")
+            # finally update highscore message
+            if found_winner:
+                chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
+                message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
+                try:
+                    await app.edit_message_text(chat_id, message_id, new_highscore)
+                except MessageNotModified as ex_modified:
+                    logging.warning(ex_modified)
+            else:
+                logging.warning("Update highscore: %s was not found in %s",
+                    winner_name,
+                    config.CONTEST_HIGHSCORE
+                )
         else:
+            logging.error("Update highscore failed, message text was missing in %s",
+                config.CONTEST_HIGHSCORE
+            )
             return False
 
 def update_highscore_line(line, next_line):
@@ -777,7 +786,7 @@ def update_highscore_line(line, next_line):
             if not next_line[medal_pos-1] == "x":
                 # medal already exist, add medal counter
                 next_line = next_line.replace(config.RANKING_WINNER_SUFFIX,
-                    "  2x"+config.RANKING_WINNER_SUFFIX,
+                    " 2x"+config.RANKING_WINNER_SUFFIX,
                     1
                 )
                 logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
@@ -824,7 +833,7 @@ def update_highscore_medal_counter(line):
 ###########################
 
 async def find_open_poll():
-    '''search for the last open poll'''
+    """search for the last open poll"""
     poll_message = False
 
     async for message in app.get_chat_history(config.CHAT_ID):
@@ -847,7 +856,7 @@ async def find_open_poll():
     return poll_message
 
 async def evaluate_poll():
-    '''search for the last open poll and evaluate'''
+    """search for the last open poll and evaluate"""
     poll_message = await find_open_poll()
 
     if not poll_message:
@@ -947,8 +956,7 @@ async def evaluate_poll():
         return False
 
 async def create_poll():
-    '''Create a poll to vote a winner from'''
-
+    """Create a poll to vote a winner from"""
     winners = await get_daily_winners()
 
     # create the ranking message
@@ -1025,7 +1033,7 @@ async def create_poll():
         )
 
 async def download_media(photo_id):
-    '''Download media and retry on failure'''
+    """Download media and retry on failure"""
     media = False
 
     i = 0
@@ -1135,7 +1143,6 @@ async def create_ranking_from_csv():
 
 def create_participant_from_csv(csv_row):
     """Create a participant dict from CSV data"""
-
     participant = {
         "author": csv_row["Username"],
         "postlink": csv_row["Postlink"],
@@ -1221,7 +1228,7 @@ def get_unique_ids_from_csv():
     return csv_unique_ids
 
 def get_inactivities_from_csv():
-    '''Return cards to mark inactive participants'''
+    """Return cards to mark inactive participants"""
     csv_participants = get_participants_from_csv()
 
     logging.info("Found CSV data of %d Participants", len(csv_participants))
@@ -1302,7 +1309,7 @@ def check_excludes(caption):
     return False
 
 def build_strptime(time_string):
-    '''Return time as strptime object'''
+    """Return time as strptime object"""
     return datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
 
 def build_postlink(participant):
@@ -1313,7 +1320,7 @@ def build_postlink(participant):
     return postlink
 
 def build_timeframe(current_time, days):
-    '''Calculate start and end date and return string'''
+    """Calculate start and end date and return string"""
     date_list = [current_time - timedelta(days=x) for x in range(days)]
     date_start = ""
     date_end = ""
@@ -1333,7 +1340,7 @@ def build_timeframe(current_time, days):
     return date_message
 
 def get_chunks(wrapstring, maxlength, pattern = "#"):
-    '''return wrapped string as yield'''
+    """return wrapped string as yield"""
     start = 0
     end = 0
     while start + maxlength  < len(wrapstring) and end != -1:

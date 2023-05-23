@@ -85,18 +85,18 @@ async def main():
                     await app.send_document(config.CSV_CHAT_ID, config.CSV_FILE,
                             caption=header_message)
 
-            final_message, winner_photo = await create_ranking(participants)
+            final_message, winner = await create_ranking(participants)
 
             if config.FINAL_MESSAGE_CHAT_ID:
 
-                if winner_photo != "" and config.POST_WINNER_PHOTO:
+                if winner['photo'] != "" and config.POST_WINNER_PHOTO:
                     await send_photo_caption(
                         config.FINAL_MESSAGE_CHAT_ID,
-                        winner_photo,
+                        winner['photo'],
                         final_message
                     )
 
-                elif winner_photo != "" and not config.POST_WINNER_PHOTO:
+                elif winner['photo'] != "" and not config.POST_WINNER_PHOTO:
                     await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
                             parse_mode=enums.ParseMode.MARKDOWN)
 
@@ -104,6 +104,9 @@ async def main():
                     log_msg = ("Something went wrong!"
                             " Can not find winner photo for final ranking message")
                     logging.warning(log_msg)
+
+            if config.CONTEST_HIGHSCORE:
+                await update_highscore(winner['display_name'])
 
 async def send_collected_photo(message, message_author):
     """send collected photo from message to POST_PARTICIPANTS_CHAT_ID"""
@@ -591,15 +594,15 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
     # init vars
     rank = 0
     last_count = 0
-    winner_photo = ""
+    winner = { "display_name": "", "photo": "" }
     final_message = ""
     templ_winner = "Unbekannt"
     templ_count = 0
 
     i = 1
-    for winner in winners:
+    for participant in winners:
 
-        winner_count = winner["count"]
+        winner_count = participant["count"]
 
         # update rank
         if not unique_ranks:
@@ -611,43 +614,41 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
             # unique ranks
             rank += 1
 
-        # set rank 1 winner photo
-        if rank == 1 and winner_photo == "":
-            if "photo_id" in winner:
+        # set rank 1 participant photo
+        if rank == 1 and winner['photo'] == "":
+            if "photo_id" in participant:
                 # chat mode
-                winner_photo = winner["photo_id"]
-            elif "postlink" in winner:
+                winner['photo'] = participant["photo_id"]
+            elif "postlink" in participant:
                 # csv mode
-                winner_photo = winner["postlink"]
+                winner['photo'] = participant["postlink"]
 
         # author prefix for telegram handle
         if not config.SIGN_MESSAGES:
-            winner_display_name = "@" + winner["author"]
+            winner['display_name'] = "@" + participant["author"]
         else:
-            winner_display_name = winner["author"]
+            winner['display_name'] = participant["author"]
 
         # add post link
         if config.POST_LINK:
-            if "postlink" in winner:
+            if "postlink" in participant:
                 # csv mode
-                winner_postlink = winner["postlink"]
+                winner_postlink = participant["postlink"]
             else:
                 # chat mode
-                winner_postlink = build_postlink(winner)
+                winner_postlink = build_postlink(participant)
 
             winner_count = f"[{winner_count}]({winner_postlink})"
 
         final_message = final_message + "#" + str(rank) \
-                + " " + winner_display_name \
+                + " " + winner['display_name'] \
                 + " (" + str(winner_count) \
                 + ")"
 
         if rank == 1:
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
-            templ_winner = winner_display_name
+            templ_winner = winner['display_name']
             templ_count = winner_count
-            if config.CONTEST_HIGHSCORE:
-                await update_highscore(winner_display_name)
         else:
             final_message = final_message + "\n"
 
@@ -680,7 +681,7 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
 
     logging.info("\n%s", final_message)
 
-    return final_message, winner_photo
+    return final_message, winner
 
 ###########################
 # Highscore methods
@@ -818,13 +819,14 @@ def update_highscore_medal_counter(line):
             break
 
     medal_counter = ""
-    for num in reversed(num_string):
-        medal_counter = medal_counter + num
+    for num_char in reversed(num_string):
+        medal_counter = medal_counter + num_char
 
-    search_string = medal_counter + "x" + config.RANKING_WINNER_SUFFIX
-    replace_string = str(int(medal_counter) + 1) + "x" + config.RANKING_WINNER_SUFFIX
-    line = line.replace(search_string, replace_string)
-    logging.info("Update highscore medals %s -> %s", search_string, replace_string)
+    if medal_counter != "":
+        search_string = medal_counter + "x" + config.RANKING_WINNER_SUFFIX
+        replace_string = str(int(medal_counter) + 1) + "x" + config.RANKING_WINNER_SUFFIX
+        line = line.replace(search_string, replace_string)
+        logging.info("Update highscore medals %s -> %s", search_string, replace_string)
 
     return line
 
@@ -965,7 +967,7 @@ async def create_poll():
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)
-    final_message, _winner_photo = create_ranking(ranking_winners, True, False)
+    final_message, _winner = create_ranking(ranking_winners, True, False)
 
     # create numbered photos from winners
     media_group = []
@@ -1111,7 +1113,7 @@ async def create_ranking_from_csv():
     """Run collect data from CSV files mode"""
     csv_participants = get_participants_from_csv()
 
-    final_message, winner_photo = create_ranking(csv_participants)
+    final_message, winner = create_ranking(csv_participants)
 
     # send ranking message to given chat
     if config.FINAL_MESSAGE_CHAT_ID:
@@ -1121,22 +1123,22 @@ async def create_ranking_from_csv():
                     str(config.CSV_FILE))
             sys.exit()
 
-        if winner_photo != "" and config.POST_WINNER_PHOTO:
+        if winner['photo'] != "" and config.POST_WINNER_PHOTO:
 
-            # check if winner_photo is a postlink
-            if "https://t.me/c/" in winner_photo:
-                photo_id = await get_photo_id_from_postlink(winner_photo)
+            # check if photo is a postlink
+            if "https://t.me/c/" in winner['photo']:
+                photo_id = await get_photo_id_from_postlink(winner['photo'])
                 if photo_id:
                     # set photo id
-                    winner_photo = photo_id
+                    winner['photo'] = photo_id
 
             await send_photo_caption(
                 config.FINAL_MESSAGE_CHAT_ID,
-                winner_photo,
+                winner['photo'],
                 final_message
             )
 
-        elif winner_photo != "" and not config.POST_WINNER_PHOTO:
+        elif winner['photo'] != "" and not config.POST_WINNER_PHOTO:
             await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
                     parse_mode=enums.ParseMode.MARKDOWN)
 
@@ -1144,6 +1146,9 @@ async def create_ranking_from_csv():
             log_msg = ("Something went wrong!"
                     " Can not find winner photo for final overall ranking message")
             logging.warning(log_msg)
+
+    if config.CONTEST_HIGHSCORE:
+        await update_highscore(winner['display_name'])
 
 def create_participant_from_csv(csv_row):
     """Create a participant dict from CSV data"""

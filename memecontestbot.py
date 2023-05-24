@@ -625,9 +625,9 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
 
         # author prefix for telegram handle
         if not config.SIGN_MESSAGES:
-            winner['display_name'] = "@" + participant["author"]
+            display_name = "@" + participant["author"]
         else:
-            winner['display_name'] = participant["author"]
+            display_name = participant["author"]
 
         # add post link
         if config.POST_LINK:
@@ -641,13 +641,13 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
             winner_count = f"[{winner_count}]({winner_postlink})"
 
         final_message = final_message + "#" + str(rank) \
-                + " " + winner['display_name'] \
+                + " " + display_name \
                 + " (" + str(winner_count) \
                 + ")"
 
         if rank == 1:
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
-            templ_winner = winner['display_name']
+            templ_winner = display_name
             templ_count = winner_count
         else:
             final_message = final_message + "\n"
@@ -669,6 +669,7 @@ async def create_ranking(participants, unique_ranks = False, sort = True):
             r"{TEMPLATE_VOTES}",
             str(templ_count)
         )
+    winner['display_name'] = templ_winner
 
     # build final message
     final_message = (
@@ -721,7 +722,8 @@ async def update_highscore(winner_name):
                             )
                             line, highscore_lines[next_line] = update_highscore_line(
                                 line,
-                                highscore_lines[next_line]
+                                highscore_lines[next_line],
+                                winner_name
                             )
                 # remember the line and modifications in a new array
                 new_highscore_lines.append(line)
@@ -766,7 +768,7 @@ async def update_highscore(winner_name):
             )
             return False
 
-def update_highscore_line(line, next_line):
+def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""
     medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
     if medal_pos > 0:
@@ -796,7 +798,10 @@ def update_highscore_line(line, next_line):
                 next_line = update_highscore_medal_counter(next_line)
         else:
             # first medal, just append
+            if line.endswith(winner_name):
+                line += " "
             line += config.RANKING_WINNER_SUFFIX
+
     return line, next_line
 
 def update_highscore_medal_counter(line):

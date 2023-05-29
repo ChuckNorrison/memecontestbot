@@ -972,7 +972,7 @@ async def create_poll():
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)
-    final_message, _winner = create_ranking(ranking_winners, True, False)
+    final_message, _winner = await create_ranking(ranking_winners, True, False)
 
     # create numbered photos from winners
     media_group = []
@@ -1118,7 +1118,7 @@ async def create_ranking_from_csv():
     """Run collect data from CSV files mode"""
     csv_participants = get_participants_from_csv()
 
-    final_message, winner = create_ranking(csv_participants)
+    final_message, winner = await create_ranking(csv_participants)
 
     # send ranking message to given chat
     if config.FINAL_MESSAGE_CHAT_ID:

@@ -85,7 +85,7 @@ async def main():
                     await app.send_document(config.CSV_CHAT_ID, config.CSV_FILE,
                             caption=header_message)
 
-            final_message, winner = await create_ranking(participants)
+            final_message, winner = create_ranking(participants)
 
             if config.FINAL_MESSAGE_CHAT_ID:
 
@@ -579,7 +579,7 @@ async def get_daily_winners():
 
     return daily_winners
 
-async def create_ranking(participants, unique_ranks = False, sort = True):
+def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
     logging.info("Create ranking (%d Participants)", len(participants))
 
@@ -972,7 +972,7 @@ async def create_poll():
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)
-    final_message, _winner = await create_ranking(ranking_winners, True, False)
+    final_message, _winner = create_ranking(ranking_winners, True, False)
 
     # create numbered photos from winners
     media_group = []
@@ -1118,7 +1118,7 @@ async def create_ranking_from_csv():
     """Run collect data from CSV files mode"""
     csv_participants = get_participants_from_csv()
 
-    final_message, winner = await create_ranking(csv_participants)
+    final_message, winner = create_ranking(csv_participants)
 
     # send ranking message to given chat
     if config.FINAL_MESSAGE_CHAT_ID:

@@ -1336,7 +1336,7 @@ def build_postlink(participant):
         baseurl = "https://t.me/c/"
     else:
         # public channel
-        baseurl = "https://t.me/"    
+        baseurl = "https://t.me/"
     postlink = baseurl + participant_chat_id + "/" + participant_id
 
     return postlink

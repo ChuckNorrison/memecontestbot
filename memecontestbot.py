@@ -1131,7 +1131,7 @@ async def create_ranking_from_csv():
         if winner['photo'] != "" and config.POST_WINNER_PHOTO:
 
             # check if photo is a postlink
-            if "https://t.me/c/" in winner['photo']:
+            if "https://t.me/" in winner['photo']:
                 photo_id = await get_photo_id_from_postlink(winner['photo'])
                 if photo_id:
                     # set photo id
@@ -1330,7 +1330,15 @@ def build_postlink(participant):
     """Builds link to given message"""
     participant_id = str(participant["id"])
     participant_chat_id = str(participant["chat_id"]).replace("-100","")
-    postlink = "https://t.me/c/" + participant_chat_id + "/" + participant_id
+
+    if isinstance(participant_chat_id, int):
+        # private chat
+        baseurl = "https://t.me/c/"
+    else:
+        # public channel
+        baseurl = "https://t.me/"    
+    postlink = baseurl + participant_chat_id + "/" + participant_id
+
     return postlink
 
 def build_timeframe(current_time, days):

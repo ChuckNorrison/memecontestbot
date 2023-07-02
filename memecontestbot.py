@@ -1330,8 +1330,7 @@ def build_postlink(participant):
     """Builds link to given message"""
     participant_id = str(participant["id"])
     participant_chat_id = str(participant["chat_id"]).replace("-100","")
-
-    if isinstance(participant_chat_id, int):
+    if participant_chat_id.isnumeric():
         # private chat
         baseurl = "https://t.me/c/"
     else:

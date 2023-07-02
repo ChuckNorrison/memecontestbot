@@ -645,7 +645,7 @@ def create_ranking(participants, unique_ranks = False, sort = True):
                 + " (" + str(winner_count) \
                 + ")"
 
-        if rank == 1:
+        if rank == 1 and templ_winner == "Unbekannt":
             final_message = final_message + config.RANKING_WINNER_SUFFIX + "\n"
             templ_winner = display_name
             templ_count = winner_count

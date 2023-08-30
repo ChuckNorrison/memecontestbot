@@ -33,7 +33,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.3.0"
+VERSION_NUMBER = "v1.3.1"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -753,12 +753,18 @@ async def update_highscore(winner_name):
             if found_winner:
                 chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
                 message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
-                try:
-                    await app.edit_message_text(chat_id, message_id, new_highscore)
-                except MessageNotModified as ex_modified:
-                    logging.warning(ex_modified)
+                if chat_id and message_id:
+                    try:
+                        await app.edit_message_text(chat_id, message_id, new_highscore)
+                    except MessageNotModified as ex_modified:
+                        logging.warning(ex_modified)
+                else:
+                    logging.error("Update highscore failed, "
+                        "chat id and/or message id was not found in %s",
+                        config.CONTEST_HIGHSCORE
+                    )
             else:
-                logging.warning("Update highscore: %s was not found in %s",
+                logging.warning("Update highscore: winner %s was not found in highscore (%s)",
                     winner_name,
                     config.CONTEST_HIGHSCORE
                 )
@@ -767,6 +773,12 @@ async def update_highscore(winner_name):
                 config.CONTEST_HIGHSCORE
             )
             return False
+    else:
+        logging.error("Update highscore failed, "
+            "message not found from %s ('Copy Post Link' "
+            "in Telegram for valid link)",
+            config.CONTEST_HIGHSCORE
+        )
 
 def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""
@@ -963,8 +975,12 @@ async def evaluate_poll():
                     await update_highscore(winner_name)
 
                 return True
+        else:
+            logging.error("Message not found in %s", postlink)
     else:
-        return False
+        logging.error("postlink not found in caption_entities")
+
+    return False
 
 async def create_poll():
     """Create a poll to vote a winner from"""
@@ -1277,10 +1293,13 @@ def get_inactivities_from_csv():
 
 async def get_message_from_postlink(postlink):
     """return message from postlink"""
+    message = False
     msg_id = get_message_id_from_postlink(postlink)
     chat_id = get_chat_id_from_postlink(postlink)
-
-    message = await app.get_messages(chat_id, msg_id)
+    if chat_id and msg_id:
+        message = await app.get_messages(chat_id, msg_id)
+    else:
+        logging.error("Cant find message from postlink: %s", postlink)
 
     return message
 
@@ -1292,20 +1311,36 @@ async def get_photo_id_from_postlink(postlink):
     if message:
         photo_id = get_photo_id_from_msg(message)
     else:
-        logging.error("Cant find message from postlink: %s", postlink)
+        logging.error("Cant find photo id from postlink: %s", postlink)
 
     return photo_id
 
 def get_chat_id_from_postlink(postlink):
     """return chat id from postlink"""
     arrpostlink = str(postlink).split("/")
-    chat_id = -int(f"{100}{int(arrpostlink[-2])}")
+    chat_id = False
+
+    if len(arrpostlink) >= 4:
+        chat_id = str(arrpostlink[-2]).replace("-100","")
+
+        if chat_id.isnumeric():
+            chat_id = -int(f"{100}{int(chat_id)}")
+    else:
+        logging.error("Cant find valid chat id from postlink: %s", postlink)
+
     return chat_id
 
 def get_message_id_from_postlink(postlink):
     """return message id from postlink"""
     arrpostlink = str(postlink).split("/")
-    return int(arrpostlink[-1])
+    message_id = False
+
+    if len(arrpostlink) >= 4:
+        message_id = int(arrpostlink[-1])
+    else:
+        logging.error("Cant find message id from postlink: %s", postlink)
+
+    return message_id
 
 def get_photo_id_from_msg(message):
     """return photo id from message object"""

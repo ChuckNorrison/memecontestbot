@@ -1052,12 +1052,15 @@ async def create_poll():
             f"vom {poll_start_date} - {poll_end_date} (24h Abstimmung)"
         )
 
-        await app.send_poll(
-            config.FINAL_MESSAGE_CHAT_ID,
-            poll_question,
-            poll_answers,
-            reply_to_message_id=media_group_message[0].id
-        )
+        if len(media_group_message) > 0:
+            await app.send_poll(
+                config.FINAL_MESSAGE_CHAT_ID,
+                poll_question,
+                poll_answers,
+                reply_to_message_id=media_group_message[0].id
+            )
+        else:
+            logging.error("No media found to create poll")
 
 async def download_media(photo_id):
     """Download media and retry on failure"""
@@ -1080,29 +1083,54 @@ async def download_media(photo_id):
 
     return media
 
+def save_image_as_png(photo, number):
+    '''Save image as png'''
+    result = False
+
+    if not os.path.exists('images'):
+        os.makedirs('images')
+
+    image = Image.open(photo)
+
+    # scale image down
+    maxsize = (500, 500)
+    image.thumbnail(maxsize)
+
+    img_name = 'images/image_' + str(number) + '_temp.png'
+
+    image.save(img_name, "PNG")
+
+    if os.path.exists(img_name):
+        result = img_name
+
+    return result
+
 def create_numbered_photo(photo, number):
     '''Returns path to the manipulated numbered photo as 500px thumbnail'''
     if not photo:
         return False
 
-    #Create an Image Object from an Image
-    image = Image.open(photo)
+    # save image as png for transparency
+    img_temp_name = save_image_as_png(photo, number)
+    if not img_temp_name:
+        return False
 
-    # scale down the image
-    maxsize = (500, 500)
-    image.thumbnail(maxsize)
+    image = Image.open(img_temp_name).convert("RGBA")
+
+    # Create text layer
+    txt = Image.new('RGBA', image.size, (255, 255, 255, 0))
 
     # get image size
     width, height = image.size
 
     # create a draw object from image
-    draw = ImageDraw.Draw(image)
+    draw = ImageDraw.Draw(txt)
 
     # define the font
     if os.name == 'nt':
-        font = ImageFont.truetype('arial.ttf', 136)
+        font = ImageFont.truetype('arialbd.ttf', 136)
     else:
-        font = ImageFont.truetype('DejaVuSans.ttf', 136)
+        font = ImageFont.truetype('DejaVuSans-Bold.ttf', 136)
 
     # draw the number
     draw.text(
@@ -1110,18 +1138,18 @@ def create_numbered_photo(photo, number):
         str(number),
         align="center",
         font=font,
+        #fill=(255, 255, 255, 90),
         fill="#f27600",
-        stroke_width=4,
-        stroke_fill='black',
+        stroke_width=2,
+        stroke_fill=(0, 0, 0, 255),
         anchor="mm"
     )
+    # combine image and text
+    combined = Image.alpha_composite(image, txt)
 
-    #Save watermarked image
-    if not os.path.exists('images'):
-        os.makedirs('images')
-
-    img_name = 'images/image_' + str(number) + '.jpg'
-    image.save(img_name, "JPEG")
+    # save the new numbered image
+    img_name = 'images/image_' + str(number) + '.png'
+    combined.save(img_name, "PNG")
     logging.info("Image saved as '%s'", img_name)
 
     return img_name

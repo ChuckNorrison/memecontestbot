@@ -21,6 +21,8 @@ import time
 
 from datetime import datetime, timedelta
 
+from random import *
+
 # telegram api
 import asyncio
 from pyrogram import Client, enums
@@ -955,10 +957,28 @@ async def evaluate_poll():
                 poll_time = build_timeframe(contest_time-timedelta(days=1), config.CONTEST_DAYS)
                 message_author = get_author(message)
 
+
+                # update placeholder
+                if "TEMPLATE_VOTES" in config.FINAL_MESSAGE_HEADER:
+                    config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
+                        r"{TEMPLATE_VOTES}",
+                        str(best_vote_count)
+                    )
+                if "TEMPLATE_TIME" in config.FINAL_MESSAGE_HEADER:
+                    config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
+                        r"{TEMPLATE_TIME}",
+                        str(poll_time)
+                    )
+
+                winner = "@" + message_author + config.RANKING_WINNER_SUFFIX
+                if "TEMPLATE_WINNER" in config.FINAL_MESSAGE_HEADER:
+                    config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
+                        r"{TEMPLATE_WINNER}",
+                        str(winner)
+                    )
+
                 final_message = (
                     f"{config.FINAL_MESSAGE_HEADER}"
-                    f"{poll_time}\n\n"
-                    f"@{message_author}{config.RANKING_WINNER_SUFFIX}\n\n"
                     f"{config.FINAL_MESSAGE_FOOTER}"
                 )
                 logging.info("\n%s", final_message)
@@ -997,6 +1017,11 @@ async def create_poll():
     poll_end_date = ""
     contest_time = build_strptime(config.CONTEST_DATE)
 
+    # create color
+    color = []
+    for _ in range(3):
+        color.append(randint(0, 255))
+
     rank = 1
     for winner in winners:
         winner_date = build_strptime(winner['date'])
@@ -1012,7 +1037,8 @@ async def create_poll():
         if winner_photo_id:
 
             media = await download_media(winner_photo_id)
-            image_path = create_numbered_photo(media, rank)
+
+            image_path = create_numbered_photo(media, rank, color)
             if not image_path:
                 logging.error(
                     "Create numbered photo failed for rank %d (%s)",
@@ -1105,7 +1131,7 @@ def save_image_as_png(photo, number):
 
     return result
 
-def create_numbered_photo(photo, number):
+def create_numbered_photo(photo, number, color):
     '''Returns path to the manipulated numbered photo as 500px thumbnail'''
     if not photo:
         return False
@@ -1138,9 +1164,13 @@ def create_numbered_photo(photo, number):
         str(number),
         align="center",
         font=font,
-        #fill=(255, 255, 255, 90),
-        fill="#f27600",
-        stroke_width=2,
+        fill=(color[0], color[1], color[2], 120),
+        #fill=(153, 101, 21, 120),
+        #fill=(255, 255, 255, 120),
+        #fill=(255, 223, 0, 120),
+        #fill=(212, 175, 55, 120),
+        #fill="#f27600",
+        stroke_width=3,
         stroke_fill=(0, 0, 0, 255),
         anchor="mm"
     )

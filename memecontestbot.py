@@ -732,20 +732,18 @@ async def update_highscore(winner_name):
 
             if not found_winner:
                 # append winner to highscore
-                if new_highscore_lines[next_line+1] == "":
+                if new_highscore_lines[next_line] == "":
                     found_winner = True
-                    offset = 9 - len(str(count_ranks))
                     new_line = (str(rank_prefix)
                         + str(count_ranks+1)
                         + "  "
                         + str(winner_name)
-                        + "\n"
-                        + " " * offset
+                        + " "
                         + str(config.RANKING_WINNER_SUFFIX)
                         + "\n")
-                    new_highscore_lines[next_line+1] += new_line
+                    new_highscore_lines[next_line] += new_line
                     logging.info("Update highscore append new %s",
-                        new_highscore_lines[next_line+1]
+                        new_highscore_lines[next_line]
                     )
 
             # rebuild the highscore message from modified lines

@@ -731,7 +731,7 @@ async def update_highscore(winner_name):
                 new_highscore_lines.append(line)
 
             if not found_winner:
-                # append to highscore
+                # append winner to highscore
                 if new_highscore_lines[next_line+1] == "":
                     found_winner = True
                     offset = 9 - len(str(count_ranks))
@@ -785,14 +785,20 @@ async def update_highscore(winner_name):
 def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""
     medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
-    if medal_pos > 0:
+    if medal_pos > 0 or re.findall("[a-zA-Z]", next_line):
         if not line[medal_pos-1] == "x":
-            # medal already exist, add medal counter
-            line = line.replace(config.RANKING_WINNER_SUFFIX,
-                "2x"+config.RANKING_WINNER_SUFFIX,
-                1
-            )
-            logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
+            if re.findall(config.RANKING_WINNER_SUFFIX, line):
+                # medal already exist, increase medal counter
+                line = line.replace(config.RANKING_WINNER_SUFFIX,
+                    "2x"+config.RANKING_WINNER_SUFFIX,
+                    1
+                )
+                logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
+            else:
+                # user without medal found
+                line = line + config.RANKING_WINNER_SUFFIX
+
+                logging.info("Update highscore medal, append new %s", config.RANKING_WINNER_SUFFIX)
         else:
             # medal counter found, increase
             line = update_highscore_medal_counter(line)

@@ -18,10 +18,9 @@ import copy
 import csv
 import re
 import time
+import random
 
 from datetime import datetime, timedelta
-
-from random import *
 
 # telegram api
 import asyncio
@@ -55,12 +54,6 @@ async def main():
 
     async with app:
 
-        if config.CONTEST_POLL_RESULT:
-            # Poll mode: Evaluate last open poll found
-            await evaluate_poll()
-
-            sys.exit()
-
         if config.CONTEST_POLL:
             # Poll mode: Create a voting poll for winners
             await create_poll()
@@ -74,6 +67,12 @@ async def main():
             sys.exit()
 
         participants = await get_participants()
+
+        if config.CONTEST_POLL_RESULT:
+            # Poll mode: Evaluate last open poll found
+            await evaluate_poll(participants)
+
+            sys.exit()
 
         # create final message with ranking
         if not config.POST_PARTICIPANTS_CHAT_ID:
@@ -880,7 +879,7 @@ async def find_open_poll():
 
     return poll_message
 
-async def evaluate_poll():
+async def evaluate_poll(participants):
     """search for the last open poll and evaluate"""
     poll_message = await find_open_poll()
 
@@ -974,17 +973,22 @@ async def evaluate_poll():
                         str(poll_time)
                     )
 
-                winner = "@" + message_author + config.RANKING_WINNER_SUFFIX
-                if "TEMPLATE_WINNER" in config.FINAL_MESSAGE_HEADER:
+                poll_winner = "@" + message_author + config.RANKING_WINNER_SUFFIX
+                if "TEMPLATE_POLL_WINNER" in config.FINAL_MESSAGE_HEADER:
                     config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
-                        r"{TEMPLATE_WINNER}",
-                        str(winner)
+                        r"{TEMPLATE_POLL_WINNER}",
+                        str(poll_winner)
                     )
 
-                final_message = (
-                    f"{config.FINAL_MESSAGE_HEADER}"
-                    f"{config.FINAL_MESSAGE_FOOTER}"
-                )
+                # add ranking to poll message
+                if config.CONTEST_MAX_RANKS:
+                    final_message, _winner = create_ranking(participants)
+                else:
+                    final_message = (
+                        f"{config.FINAL_MESSAGE_HEADER}"
+                        f"{config.FINAL_MESSAGE_FOOTER}"
+                    )
+
                 logging.info("\n%s", final_message)
 
                 if len(final_message) > 2048:
@@ -1024,7 +1028,7 @@ async def create_poll():
     # create color
     color = []
     for _ in range(3):
-        color.append(randint(0, 255))
+        color.append(random.randint(0, 255))
 
     rank = 1
     for winner in winners:

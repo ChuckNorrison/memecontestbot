@@ -957,7 +957,7 @@ async def evaluate_poll(participants):
             photo_id = get_photo_id_from_msg(message)
             if photo_id:
                 contest_time = build_strptime(config.CONTEST_DATE)
-                poll_time = build_timeframe(contest_time-timedelta(days=1), config.CONTEST_DAYS)
+                poll_time = build_timeframe(contest_time-timedelta(days=1), config.CONTEST_DAYS+1)
                 message_author = get_author(message)
 
 

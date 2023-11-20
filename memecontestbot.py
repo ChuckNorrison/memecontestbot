@@ -215,7 +215,7 @@ async def get_participants():
         message_time = build_strptime(str(message.date))
         message_difftime = contest_time - message_time
 
-        if ( (message_difftime.days < config.CONTEST_DAYS)
+        if ( (message_difftime.days < config.CONTEST_DAYS+1)
                 and not message_difftime.days < 0 ):
 
             # prevent from caption abuse, check sender
@@ -981,7 +981,7 @@ async def evaluate_poll(participants):
                     )
 
                 # add ranking to poll message
-                if config.CONTEST_MAX_RANKS:
+                if config.CONTEST_POLL_RESULT_RANKING:
                     final_message, _winner = create_ranking(participants)
                 else:
                     final_message = (
@@ -1057,7 +1057,7 @@ async def create_poll():
 
             if rank == 1:
                 poll_end_date = winner_date_formatted
-                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS-1)
+                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
                 poll_start_date = poll_start_date.strftime("%d.%m.%Y")
                 logging.info("poll start date found: %s", poll_start_date)
 
@@ -1265,7 +1265,7 @@ def get_participants_from_csv():
             row_time = build_strptime(str(row['Timestamp']))
             row_difftime = contest_time - row_time
 
-            if ( row_difftime.days < config.CONTEST_DAYS
+            if ( row_difftime.days < config.CONTEST_DAYS+1
                     and not row_difftime.days < 0 ):
 
                 duplicate = False

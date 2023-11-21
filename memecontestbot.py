@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.4.0"
+VERSION_NUMBER = "v1.4.1"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -595,7 +595,6 @@ def create_ranking(participants, unique_ranks = False, sort = True):
         if ( (participant_difftime.days < config.CONTEST_DAYS)
                 and not participant_difftime.days < 0 ):
             participants_ranking.append(participant)
-            logging.info("Participant %s",participant['author'])
 
     # get winners
     if sort:
@@ -997,7 +996,9 @@ async def evaluate_poll(participants):
 
                 # add ranking to poll message
                 if config.CONTEST_POLL_RESULT_RANKING:
-                    final_message, _winner = create_ranking(participants)
+                    final_message, winner = create_ranking(participants)
+                    if config.CONTEST_HIGHSCORE:
+                        await update_highscore(winner['display_name'])
                 else:
                     final_message = (
                         f"{config.FINAL_MESSAGE_HEADER}"
@@ -1341,30 +1342,41 @@ def get_unique_ids_from_csv():
 def get_inactivities_from_csv():
     """Return cards to mark inactive participants"""
     csv_participants = get_participants_from_csv()
+    csv_participants = sorted(csv_participants,
+            key=lambda x: x['date'], reverse = True)
 
-    logging.info("Found CSV data of %d Participants", len(csv_participants))
+    logging.info("Found CSV data: %d rows", len(csv_participants))
     contest_time = build_strptime(config.CONTEST_DATE)
     yellow_cards = []
     orange_cards = []
+    good_participants = []
 
     for participant in csv_participants:
         participant_time = build_strptime(str(participant['date']))
         participant_difftime = contest_time - participant_time
 
-        if participant_difftime.days > 7 and participant_difftime.days <= 28:
-            logging.info(
-                "yellow card for %s cause of %d days of inactivity",
-                participant['author'],
-                participant_difftime.days
-            )
-            yellow_cards.append(participant)
-        elif participant_difftime.days >= 29:
-            logging.info(
-                "orange card for %s cause of %d days of inactivity",
-                participant['author'],
-                participant_difftime.days
-            )
-            orange_cards.append(participant)
+        duplicate = False
+        for good_participant in good_participants:
+            if participant['author'].lower() in good_participant['author'].lower():
+                duplicate = True
+        for yellow_card in yellow_cards:
+            if participant['author'].lower() in yellow_card['author'].lower():
+                duplicate = True
+        for orange_card in orange_cards:
+            if participant['author'].lower() in orange_card['author'].lower():
+                duplicate = True
+
+        if not duplicate:
+            if participant_difftime.days > 7 and participant_difftime.days <= 28:
+                print(f"yellow card for @{participant['author']} cause of {participant_difftime.days} days of inactivity")
+                yellow_cards.append(participant)
+
+            elif participant_difftime.days >= 29:
+                print(f"orange card for @{participant['author']} cause of {participant_difftime.days} days of inactivity")
+                orange_cards.append(participant)
+            else:
+                print(f"OK @{participant['author']}, last meme {participant_difftime.days} days ago")
+                good_participants.append(participant)
 
     return yellow_cards, orange_cards
 

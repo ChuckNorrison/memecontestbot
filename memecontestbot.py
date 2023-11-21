@@ -48,11 +48,13 @@ async def main():
     logging.info("Start meme contest bot version '%s' at %s", VERSION_NUMBER, formatted_date)
 
     if config.PARTICIPANTS_LIST:
-        get_inactivities_from_csv()
-
-        sys.exit()
+        yellow_cards, orange_cards = get_inactivities_from_csv()
 
     async with app:
+
+        if config.PARTICIPANTS_LIST:
+            await send_inactivity_message(yellow_cards, orange_cards)
+            sys.exit()
 
         if config.CONTEST_POLL:
             # Poll mode: Create a voting poll for winners
@@ -1368,17 +1370,32 @@ def get_inactivities_from_csv():
 
         if not duplicate:
             if participant_difftime.days > 7 and participant_difftime.days <= 28:
-                print(f"yellow card for @{participant['author']} cause of {participant_difftime.days} days of inactivity")
+                participant['lastmemedays'] = participant_difftime.days
                 yellow_cards.append(participant)
 
             elif participant_difftime.days >= 29:
-                print(f"orange card for @{participant['author']} cause of {participant_difftime.days} days of inactivity")
+                participant['lastmemedays'] = participant_difftime.days
                 orange_cards.append(participant)
             else:
-                print(f"OK @{participant['author']}, last meme {participant_difftime.days} days ago")
                 good_participants.append(participant)
 
     return yellow_cards, orange_cards
+
+async def send_inactivity_message(yellow_cards, orange_cards):
+    """Create inactivity list from cards and send the message"""
+    msg = ""
+    for card in yellow_cards:
+        msg += (f"yellow card 🟨 for @{card['author']} "
+                f"cause of {card['lastmemedays']} days of inactivity\n")
+
+    for card in orange_cards:
+        msg += (f"orange card 🟧 for @{card['author']} "
+                        f"cause of {card['lastmemedays']} days of inactivity\n")
+
+    print(msg)
+    if config.FINAL_MESSAGE_CHAT_ID:
+        await app.send_message(config.FINAL_MESSAGE_CHAT_ID, msg,
+                        parse_mode=enums.ParseMode.MARKDOWN)
 
 ##################
 # Common methods

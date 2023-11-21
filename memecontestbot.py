@@ -584,13 +584,28 @@ def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
     logging.info("Create ranking (%d Participants)", len(participants))
 
+    # clean up participants, keep only CONTEST_DAYS for ranking
+    contest_time = build_strptime(config.CONTEST_DATE)
+    participants_ranking = []
+    for participant in participants:
+        # check if message was in desired timeframe
+        participant_time = build_strptime(str(participant['date']))
+        participant_difftime = contest_time - participant_time
+
+        if ( (participant_difftime.days < config.CONTEST_DAYS)
+                and not participant_difftime.days < 0 ):
+            participants_ranking.append(participant)
+            logging.info("Participant %s",participant['author'])
+
     # get winners
     if sort:
-        participants = sorted(participants, key=lambda x: x['views'], reverse = True)
-        winners = get_winners(participants)
+        # sort participants by views
+        participants_ranking = sorted(participants_ranking,
+                key=lambda x: x['views'], reverse = True)
+        winners = get_winners(participants_ranking)
     else:
         # ranking in poll mode
-        winners = participants
+        winners = participants_ranking
 
     # init vars
     rank = 0

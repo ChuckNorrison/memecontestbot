@@ -91,12 +91,13 @@ def load_config():
         config, 'EXCLUDE_PATTERN', ["Meme Contest", "Tagessieger", "Rangliste"]
     )
     config.FINAL_MESSAGE_HEADER         = getattr(config, 'FINAL_MESSAGE_HEADER', "")
+    config.FINAL_MESSAGE_HEADER_DRAW    = getattr(config, 'FINAL_MESSAGE_HEADER_DRAW', "")
     config.FINAL_MESSAGE_FOOTER         = getattr(
         config, 'FINAL_MESSAGE_FOOTER',
         f"🏆 [{config.EXCLUDE_PATTERN[0]}](https://t.me/mychannelname) 🏆"
     )
     config.FINAL_MESSAGE_CHAT_ID        = getattr(config, 'FINAL_MESSAGE_CHAT_ID', False)
-    config.PARTICIPANTS_FROM_CSV       = getattr(config, 'PARTICIPANTS_FROM_CSV', False)
+    config.PARTICIPANTS_FROM_CSV        = getattr(config, 'PARTICIPANTS_FROM_CSV', False)
     config.POST_LINK                    = getattr(config, 'POST_LINK', True)
     config.CREATE_CSV                   = getattr(config, 'CREATE_CSV', False)
     config.CSV_CHAT_ID                  = getattr(

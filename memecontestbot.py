@@ -914,16 +914,22 @@ async def evaluate_poll():
             best_option = option.text
         elif ( option.voter_count > 0
                 and option.voter_count == best_vote_count ):
+            second_best_vote_count = option.voter_count
             second_best_option = option.text
 
     if not best_option:
         logging.warning("Was not able to find the best vote!")
         return False
 
-    logging.info("Best option found as %s with %d votes", best_option, best_vote_count)
-
-    if best_vote_count == second_best_vote_count:
-        logging.info("Draw in poll found: %s vs %s", best_option, second_best_option)
+    logging.info("Best option found as %s with %d votes",
+            best_option,
+            best_vote_count
+    )
+    if second_best_option:
+        logging.info("Second best option found as %s with %d votes",
+                second_best_option,
+                second_best_vote_count
+        )
 
     # check the caption of poll based ranking message
     ranking_message = await app.get_messages(
@@ -941,6 +947,7 @@ async def evaluate_poll():
 
     i = 1
     postlink = False
+    postlink_second = False
     for entity in ranking_message.caption_entities:
         if entity.url:
             # search for winner postlink in caption
@@ -949,11 +956,26 @@ async def evaluate_poll():
                     postlink = entity.url
                 else:
                     logging.error("best option is missing postlink (%s)", best_option[0])
-                break
+
+            elif best_vote_count == second_best_vote_count:
+                if i <= config.CONTEST_MAX_RANKS and i == int(second_best_option[0]):
+                    postlink_second = entity.url
+                    logging.info("Draw in poll found: %s vs %s",
+                            best_option, second_best_option
+                    )
             i += 1
 
+    media_group = []
+    message_author_second = False
     if postlink:
         message = await get_message_from_postlink(postlink)
+        if postlink_second:
+            message_second = await get_message_from_postlink(postlink_second)
+            if message_second:
+                photo_id_second = get_photo_id_from_msg(message_second)
+                if photo_id_second:
+                    message_author_second = get_author(message_second)
+                    media_group.append(InputMediaPhoto(photo_id_second))
         if message:
             photo_id = get_photo_id_from_msg(message)
             if photo_id:
@@ -961,34 +983,52 @@ async def evaluate_poll():
                 poll_time = build_timeframe(contest_time-timedelta(days=1), config.CONTEST_DAYS+1)
                 message_author = get_author(message)
 
+                poll_winner = "@" + message_author + config.RANKING_WINNER_SUFFIX
+                if message_author_second:
+                    final_message_header = config.FINAL_MESSAGE_HEADER_DRAW
 
-                # update placeholder
-                if "TEMPLATE_VOTES" in config.FINAL_MESSAGE_HEADER:
-                    config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
+                    poll_winner_second = ("@"
+                            + message_author_second
+                            + config.RANKING_WINNER_SUFFIX
+                    )
+                else:
+                    final_message_header = config.FINAL_MESSAGE_HEADER
+
+                if "TEMPLATE_VOTES" in final_message_header:
+                    final_message_header = final_message_header.replace(
                         r"{TEMPLATE_VOTES}",
                         str(best_vote_count)
                     )
-                if "TEMPLATE_TIME" in config.FINAL_MESSAGE_HEADER:
-                    config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
+                if "TEMPLATE_TIME" in final_message_header:
+                    final_message_header = final_message_header.replace(
                         r"{TEMPLATE_TIME}",
                         str(poll_time)
                     )
-
-                poll_winner = "@" + message_author + config.RANKING_WINNER_SUFFIX
-                if "TEMPLATE_POLL_WINNER" in config.FINAL_MESSAGE_HEADER:
-                    config.FINAL_MESSAGE_HEADER = config.FINAL_MESSAGE_HEADER.replace(
+                if "TEMPLATE_POLL_WINNER" in final_message_header:
+                    final_message_header = final_message_header.replace(
                         r"{TEMPLATE_POLL_WINNER}",
                         str(poll_winner)
                     )
+                if "TEMPLATE_POLL_WINNER_SECOND" in final_message_header:
+                    final_message_header = final_message_header.replace(
+                        r"{TEMPLATE_POLL_WINNER_SECOND}",
+                        str(poll_winner_second)
+                    )
+
+                config.FINAL_MESSAGE_HEADER = final_message_header
 
                 # add ranking to poll message
                 if config.CONTEST_POLL_RESULT_RANKING:
                     if config.PARTICIPANTS_FROM_CSV:
                         # CSV Mode: Create a ranking message from CSV data
-                        csv_participants = get_participants_from_csv(contest_days = config.CONTEST_DAYS+1)
+                        csv_participants = get_participants_from_csv(
+                                contest_days = config.CONTEST_DAYS+1
+                        )
                         final_message, winner = create_ranking(csv_participants)
                     else:
-                        participants = await get_participants(contest_days = config.CONTEST_DAYS+1)
+                        participants = await get_participants(
+                                contest_days = config.CONTEST_DAYS+1
+                        )
                         final_message, winner = create_ranking(participants)
                     if config.CONTEST_HIGHSCORE:
                         await update_highscore(winner['display_name'])
@@ -1003,13 +1043,21 @@ async def evaluate_poll():
                 if len(final_message) > 2048:
                     logging.warning("Message too long (%d chars)", len(final_message))
 
-                await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, photo_id,
-                    final_message, parse_mode=enums.ParseMode.MARKDOWN,
-                    reply_to_message_id=poll_reply_message_id)
+                media_group.append(InputMediaPhoto(photo_id, final_message))
+                if len(media_group) > 1:
+                    await app.send_media_group(config.FINAL_MESSAGE_CHAT_ID, media_group,
+                        reply_to_message_id=poll_reply_message_id)
+                else:
+                    await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, photo_id,
+                        final_message, parse_mode=enums.ParseMode.MARKDOWN,
+                        reply_to_message_id=poll_reply_message_id)
 
                 if config.CONTEST_HIGHSCORE:
-                    winner_name = "@"+message_author
+                    winner_name = "@" + message_author
                     await update_highscore(winner_name)
+                    if message_author_second:
+                        winner_name_second = "@" + message_author_second
+                        await update_highscore(winner_name_second)
 
                 return True
         else:

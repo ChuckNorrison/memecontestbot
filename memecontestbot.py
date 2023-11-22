@@ -59,22 +59,19 @@ async def main():
         if config.CONTEST_POLL:
             # Poll mode: Create a voting poll for winners
             await create_poll()
+            sys.exit()
 
+        if config.CONTEST_POLL_RESULT:
+            # Poll mode: Evaluate last open poll found and create result
+            await evaluate_poll()
             sys.exit()
 
         if config.PARTICIPANTS_FROM_CSV:
             # CSV Mode: Create a ranking message from CSV data
             await create_ranking_from_csv()
-
             sys.exit()
 
         participants = await get_participants()
-
-        if config.CONTEST_POLL_RESULT:
-            # Poll mode: Evaluate last open poll found
-            await evaluate_poll(participants)
-
-            sys.exit()
 
         # create final message with ranking
         if not config.POST_PARTICIPANTS_CHAT_ID:
@@ -187,7 +184,7 @@ async def check_repost(message, unique_ids):
 
     return unique_check
 
-async def get_participants():
+async def get_participants(contest_days = config.CONTEST_DAYS):
     """read chat history and return participants"""
     contest_time = build_strptime(config.CONTEST_DATE)
     participants = []
@@ -217,7 +214,7 @@ async def get_participants():
         message_time = build_strptime(str(message.date))
         message_difftime = contest_time - message_time
 
-        if ( (message_difftime.days < config.CONTEST_DAYS+1)
+        if ( (message_difftime.days < contest_days)
                 and not message_difftime.days < 0 ):
 
             # prevent from caption abuse, check sender
@@ -555,9 +552,9 @@ async def get_daily_winners():
     contest_time = build_strptime(config.CONTEST_DATE)
 
     if config.PARTICIPANTS_FROM_CSV:
-        participants = get_participants_from_csv()
+        participants = get_participants_from_csv(contest_days = config.CONTEST_DAYS+1)
     else:
-        participants = await get_participants()
+        participants = await get_participants(contest_days = config.CONTEST_DAYS+1)
 
     # find a winner for each contest day
     i = 1
@@ -586,27 +583,15 @@ def create_ranking(participants, unique_ranks = False, sort = True):
     """Build the final ranking message"""
     logging.info("Create ranking (%d Participants)", len(participants))
 
-    # clean up participants, keep only CONTEST_DAYS for ranking
-    contest_time = build_strptime(config.CONTEST_DATE)
-    participants_ranking = []
-    for participant in participants:
-        # check if message was in desired timeframe
-        participant_time = build_strptime(str(participant['date']))
-        participant_difftime = contest_time - participant_time
-
-        if ( (participant_difftime.days < config.CONTEST_DAYS)
-                and not participant_difftime.days < 0 ):
-            participants_ranking.append(participant)
-
     # get winners
     if sort:
         # sort participants by views
-        participants_ranking = sorted(participants_ranking,
+        participants = sorted(participants,
                 key=lambda x: x['views'], reverse = True)
-        winners = get_winners(participants_ranking)
+        winners = get_winners(participants)
     else:
         # ranking in poll mode
-        winners = participants_ranking
+        winners = participants
 
     # init vars
     rank = 0
@@ -895,7 +880,7 @@ async def find_open_poll():
 
     return poll_message
 
-async def evaluate_poll(participants):
+async def evaluate_poll():
     """search for the last open poll and evaluate"""
     poll_message = await find_open_poll()
 
@@ -998,7 +983,13 @@ async def evaluate_poll(participants):
 
                 # add ranking to poll message
                 if config.CONTEST_POLL_RESULT_RANKING:
-                    final_message, winner = create_ranking(participants)
+                    if config.PARTICIPANTS_FROM_CSV:
+                        # CSV Mode: Create a ranking message from CSV data
+                        csv_participants = get_participants_from_csv(contest_days = config.CONTEST_DAYS+1)
+                        final_message, winner = create_ranking(csv_participants)
+                    else:
+                        participants = await get_participants(contest_days = config.CONTEST_DAYS+1)
+                        final_message, winner = create_ranking(participants)
                     if config.CONTEST_HIGHSCORE:
                         await update_highscore(winner['display_name'])
                 else:
@@ -1267,7 +1258,7 @@ def create_participant_from_csv(csv_row):
 
     return participant
 
-def get_participants_from_csv():
+def get_participants_from_csv(contest_days = config.CONTEST_DAYS):
     """Collect participants from CSV file"""
     csv_participants = []
     contest_time = build_strptime(config.CONTEST_DATE)
@@ -1283,7 +1274,7 @@ def get_participants_from_csv():
             row_time = build_strptime(str(row['Timestamp']))
             row_difftime = contest_time - row_time
 
-            if ( row_difftime.days < config.CONTEST_DAYS+1
+            if ( row_difftime.days < contest_days
                     and not row_difftime.days < 0 ):
 
                 duplicate = False

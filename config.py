@@ -32,6 +32,10 @@ CONTEST_POLL = False
 # True or False
 CONTEST_POLL_RESULT = False
 
+# Set color for numbered photos
+# False for random colors or RGB, set as array [212, 175, 55]
+CONTEST_POLL_COLOR = [212, 175, 55]
+
 # Update the highscore message with medals for winner
 # False or postlink (https://t.me/c/{chat_id}/{message_id})
 CONTEST_HIGHSCORE = False

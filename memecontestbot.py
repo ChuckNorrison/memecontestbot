@@ -1073,9 +1073,12 @@ async def create_poll():
     contest_time = build_strptime(config.CONTEST_DATE)
 
     # create color
-    color = []
-    for _ in range(3):
-        color.append(random.randint(0, 255))
+    if config.CONTEST_POLL_COLOR:
+        color = config.CONTEST_POLL_COLOR
+    else:
+        color = []
+        for _ in range(3):
+            color.append(random.randint(0, 255))
 
     rank = 1
     for winner in winners:
@@ -1220,11 +1223,6 @@ def create_numbered_photo(photo, number, color):
         align="center",
         font=font,
         fill=(color[0], color[1], color[2], 120),
-        #fill=(153, 101, 21, 120),
-        #fill=(255, 255, 255, 120),
-        #fill=(255, 223, 0, 120),
-        #fill=(212, 175, 55, 120),
-        #fill="#f27600",
         stroke_width=3,
         stroke_fill=(0, 0, 0, 255),
         anchor="mm"

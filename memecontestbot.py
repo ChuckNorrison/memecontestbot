@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.4.2"
+VERSION_NUMBER = "v1.4.3"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -48,7 +48,13 @@ async def main():
     logging.info("Start meme contest bot version '%s' at %s", VERSION_NUMBER, formatted_date)
 
     if config.PARTICIPANTS_LIST:
+        # inactivities Mode: create a message of inactive participants
         msg = get_inactivities_from_csv()
+
+    elif config.PARTICIPANTS_FROM_CSV:
+        # CSV Mode: Create a ranking message from CSV data
+        participants = get_participants_from_csv()
+        final_message, winner = create_ranking(participants)
 
     async with app:
 
@@ -69,15 +75,17 @@ async def main():
             sys.exit()
 
         if config.PARTICIPANTS_FROM_CSV:
-            # CSV Mode: Create a ranking message from CSV data
-            await create_ranking_from_csv()
+            # CSV Mode: send a ranking message from CSV data
+            await send_ranking_message(final_message, winner)
             sys.exit()
 
-        participants = await get_participants()
+        if not config.PARTICIPANTS_FROM_CSV:
+            # Ranking or collect mode
+            participants = await get_participants()
 
         # create final message with ranking
         if not config.POST_PARTICIPANTS_CHAT_ID:
-
+            # Ranking Mode
             if config.CREATE_CSV:
 
                 rows_count = write_rows_to_csv(participants)
@@ -88,27 +96,7 @@ async def main():
                             caption=header_message)
 
             final_message, winner = create_ranking(participants)
-
-            if config.FINAL_MESSAGE_CHAT_ID:
-
-                if winner['photo'] != "" and config.POST_WINNER_PHOTO:
-                    await send_photo_caption(
-                        config.FINAL_MESSAGE_CHAT_ID,
-                        winner['photo'],
-                        final_message
-                    )
-
-                elif winner['photo'] != "" and not config.POST_WINNER_PHOTO:
-                    await app.send_message(config.FINAL_MESSAGE_CHAT_ID, final_message,
-                            parse_mode=enums.ParseMode.MARKDOWN)
-
-                else:
-                    log_msg = ("Something went wrong!"
-                            " Can not find winner photo for final ranking message")
-                    logging.warning(log_msg)
-
-            if config.CONTEST_HIGHSCORE:
-                await update_highscore(winner['display_name'])
+            await send_ranking_message(final_message, winner)
 
 async def send_collected_photo(message, message_author):
     """send collected photo from message to POST_PARTICIPANTS_CHAT_ID"""
@@ -1251,23 +1239,9 @@ def create_numbered_photo(photo, number, color):
 
     return img_name
 
-###########################
-# CSV based ranking methods
-###########################
-
-async def create_ranking_from_csv():
-    """Run collect data from CSV files mode"""
-    csv_participants = get_participants_from_csv()
-
-    final_message, winner = create_ranking(csv_participants)
-
-    # send ranking message to given chat
+async def send_ranking_message(final_message, winner):
+    """verify and send ranking message"""
     if config.FINAL_MESSAGE_CHAT_ID:
-
-        if not final_message:
-            logging.warning("Can not create final message from CSV participants (file: %s)",
-                    str(config.CSV_FILE))
-            sys.exit()
 
         if winner['photo'] != "" and config.POST_WINNER_PHOTO:
 
@@ -1295,6 +1269,10 @@ async def create_ranking_from_csv():
 
     if config.CONTEST_HIGHSCORE:
         await update_highscore(winner['display_name'])
+
+###########################
+# CSV based ranking methods
+###########################
 
 def create_participant_from_csv(csv_row):
     """Create a participant dict from CSV data"""

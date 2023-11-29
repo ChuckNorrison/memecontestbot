@@ -774,7 +774,7 @@ def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""
     medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
     if medal_pos > 0 or re.findall("[a-zA-Z]", next_line):
-        if not line[medal_pos-1] == "x":
+        if not line[medal_pos-1] == "x" or medal_pos == -1:
             if re.findall(config.RANKING_WINNER_SUFFIX, line):
                 # medal already exist, increase medal counter
                 line = line.replace(config.RANKING_WINNER_SUFFIX,

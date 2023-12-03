@@ -188,11 +188,16 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
     async for message in app.get_chat_history(config.CHAT_ID):
 
         # check excludes in message caption
-        if check_excludes(message.caption):
-            continue
+        if hasattr(message, "caption"):
+            if check_excludes(message.caption):
+                continue
 
         # check if message is a photo
-        if str(message.media) != "MessageMediaType.PHOTO":
+        if hasattr(message, "media"):
+            if str(message.media) != "MessageMediaType.PHOTO":
+                continue
+        else:
+            # only works with media yet
             continue
 
         # check for valid author in message
@@ -200,10 +205,14 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
         if not message_author:
             continue
 
-        # check if message was in desired timeframe
-        message_time = build_strptime(str(message.date))
-        message_difftime = contest_time - message_time
+        # check if message has a timestamp
+        if hasattr(message, "date"):
+            message_time = build_strptime(str(message.date))
+            message_difftime = contest_time - message_time
+        else:
+            continue
 
+        # check if message was in desired timeframe
         if ( (message_difftime.days < contest_days)
                 and not message_difftime.days < 0 ):
 
@@ -399,7 +408,8 @@ def get_author(message):
     if not config.SIGN_MESSAGES:
         # # force to set author from caption
         # # and not from channel signature
-        message_author = get_caption_pattern(message.caption, "@")
+        if hasattr(message, "caption"):
+            message_author = get_caption_pattern(message.caption, "@")
         if message_author:
             message_author = message_author.replace("@","")
 
@@ -422,7 +432,18 @@ def get_sender(message):
         message_sender = message.from_user.id
     except AttributeError:
         # channel sender with sign messages enabled
-        message_sender = message.author_signature
+        if hasattr(message, 'author_signature'):
+            message_sender = message.author_signature
+        elif hasattr(message, 'from_user'):
+            if hasattr(message.from_user, 'username'):
+                message_sender = message.from_user.username
+            elif hasattr(message.from_user, 'first_name'):
+                message_sender = message.from_user.first_name
+            elif hasattr(message.from_user, 'last_name'):
+                message_sender = message.from_user.last_name
+
+    if not message_sender:
+        logging.warning("Cant find sender from message!")
 
     return message_sender
 

@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.4.3"
+VERSION_NUMBER = "v1.4.4"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -96,7 +96,9 @@ async def main():
                             caption=header_message)
 
             final_message, winner = create_ranking(participants)
-            await send_ranking_message(final_message, winner)
+            if hasattr(winner, "display_name"):
+                if winner['display_name'] != "Unbekannt":
+                    await send_ranking_message(final_message, winner)
 
 async def send_collected_photo(message, message_author):
     """send collected photo from message to POST_PARTICIPANTS_CHAT_ID"""
@@ -217,7 +219,7 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
                 and not message_difftime.days < 0 ):
 
             # prevent from caption abuse, check sender
-            if config.POST_PARTICIPANTS_CHAT_ID:
+            if config.POST_PARTICIPANTS_CHAT_ID and config.LIMIT_SENDERS:
                 message_sender = get_sender(message)
                 if message_sender in message_senders:
                     logging.info(

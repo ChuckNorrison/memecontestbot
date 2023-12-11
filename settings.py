@@ -108,6 +108,7 @@ def load_config():
     config.SIGN_MESSAGES                = getattr(config, 'SIGN_MESSAGES', False)
     config.RANK_MEMES                   = getattr(config, 'RANK_MEMES', True)
     config.POST_PARTICIPANTS_CHAT_ID    = getattr(config, 'POST_PARTICIPANTS_CHAT_ID', False)
+    config.LIMIT_SENDERS                = getattr(config, 'LIMIT_SENDERS', True)
     config.CSV_FILE                     = getattr(config, 'CSV_FILE', "contest.csv")
     config.RANKING_WINNER_SUFFIX        = getattr(config, 'RANKING_WINNER_SUFFIX', "🏅")
     config.PARTICIPANTS_LIST            = getattr(config, 'PARTICIPANTS_LIST', False)

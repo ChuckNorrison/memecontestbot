@@ -96,9 +96,8 @@ async def main():
                             caption=header_message)
 
             final_message, winner = create_ranking(participants)
-            if hasattr(winner, "display_name"):
-                if winner['display_name'] != "Unbekannt":
-                    await send_ranking_message(final_message, winner)
+            if winner['display_name'] != "Unbekannt":
+                await send_ranking_message(final_message, winner)
 
 async def send_collected_photo(message, message_author):
     """send collected photo from message to POST_PARTICIPANTS_CHAT_ID"""
@@ -706,92 +705,98 @@ def create_ranking(participants, unique_ranks = False, sort = True):
 async def update_highscore(winner_name):
     """Update the highscore message"""
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
-    if hasattr(message, 'text'):
+    if hasattr(message, 'caption'):
+        # this is a photo message
+        highscore = message.caption
+    elif hasattr(message, 'text'):
+        # this is a standard message
         highscore = message.text
-        if highscore:
-            # find and edit the winner
-            new_highscore = ""
-            highscore_lines = highscore.split("\n")
-            new_highscore_lines = []
-            found_winner = False
-
-            count_ranks = 0
-            count_lines = 0
-            next_line = 0
-            rank_prefix = ""
-            for line in highscore_lines:
-                count_lines += 1
-                if len(line) >= 2:
-                    if line[0].isdigit() or line[1].isdigit():
-                        # remember rank prefix like # if used
-                        if not line[0].isdigit():
-                            rank_prefix = line[0]
-                        count_ranks += 1
-                        next_line = count_lines
-
-                        if line.lower().find(winner_name.lower()) > 0:
-                            found_winner = True
-                            logging.info("Update highscore for %s (ranks: %d)",
-                                winner_name,
-                                count_ranks
-                            )
-                            line, highscore_lines[next_line] = update_highscore_line(
-                                line,
-                                highscore_lines[next_line],
-                                winner_name
-                            )
-                # remember the line and modifications in a new array
-                new_highscore_lines.append(line)
-
-            if not found_winner:
-                # append winner to highscore
-                if new_highscore_lines[next_line] == "":
-                    found_winner = True
-                    new_line = (str(rank_prefix)
-                        + str(count_ranks+1)
-                        + "  "
-                        + str(winner_name)
-                        + " "
-                        + str(config.RANKING_WINNER_SUFFIX)
-                        + "\n")
-                    new_highscore_lines[next_line] += new_line
-                    logging.info("Update highscore append new %s",
-                        new_highscore_lines[next_line]
-                    )
-
-            # rebuild the highscore message from modified lines
-            new_highscore = "\n".join(new_highscore_lines)
-
-            # finally update highscore message
-            if found_winner:
-                chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
-                message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
-                if chat_id and message_id:
-                    try:
-                        await app.edit_message_text(chat_id, message_id, new_highscore)
-                    except MessageNotModified as ex_modified:
-                        logging.warning(ex_modified)
-                else:
-                    logging.error("Update highscore failed, "
-                        "chat id and/or message id was not found in %s",
-                        config.CONTEST_HIGHSCORE
-                    )
-            else:
-                logging.warning("Update highscore: winner %s was not found in highscore (%s)",
-                    winner_name,
-                    config.CONTEST_HIGHSCORE
-                )
-        else:
-            logging.error("Update highscore failed, message text was missing in %s",
-                config.CONTEST_HIGHSCORE
-            )
-            return False
     else:
         logging.error("Update highscore failed, "
             "message not found from %s ('Copy Post Link' "
             "in Telegram for valid link)",
             config.CONTEST_HIGHSCORE
         )
+        return False
+
+    if highscore:
+        # find and edit the winner
+        new_highscore = ""
+        highscore_lines = highscore.split("\n")
+        new_highscore_lines = []
+        found_winner = False
+
+        count_ranks = 0
+        count_lines = 0
+        next_line = 0
+        rank_prefix = ""
+        for line in highscore_lines:
+            count_lines += 1
+            if len(line) >= 2:
+                if line[0].isdigit() or line[1].isdigit():
+                    # remember rank prefix like # if used
+                    if not line[0].isdigit():
+                        rank_prefix = line[0]
+                    count_ranks += 1
+                    next_line = count_lines
+
+                    if line.lower().find(winner_name.lower()) > 0:
+                        found_winner = True
+                        logging.info("Update highscore for %s (ranks: %d)",
+                            winner_name,
+                            count_ranks
+                        )
+                        line, highscore_lines[next_line] = update_highscore_line(
+                            line,
+                            highscore_lines[next_line],
+                            winner_name
+                        )
+            # remember the line and modifications in a new array
+            new_highscore_lines.append(line)
+
+        if not found_winner:
+            # append winner to highscore
+            if new_highscore_lines[next_line] == "":
+                found_winner = True
+                new_line = (str(rank_prefix)
+                    + str(count_ranks+1)
+                    + "  "
+                    + str(winner_name)
+                    + " "
+                    + str(config.RANKING_WINNER_SUFFIX)
+                    + "\n")
+                new_highscore_lines[next_line] += new_line
+                logging.info("Update highscore append new %s",
+                    new_highscore_lines[next_line]
+                )
+
+        # rebuild the highscore message from modified lines
+        new_highscore = "\n".join(new_highscore_lines)
+
+        # finally update highscore message
+        if found_winner:
+            chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
+            message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
+            if chat_id and message_id:
+                try:
+                    await app.edit_message_text(chat_id, message_id, new_highscore)
+                except MessageNotModified as ex_modified:
+                    logging.warning(ex_modified)
+            else:
+                logging.error("Update highscore failed, "
+                    "chat id and/or message id was not found in %s",
+                    config.CONTEST_HIGHSCORE
+                )
+        else:
+            logging.warning("Update highscore: winner %s was not found in highscore (%s)",
+                winner_name,
+                config.CONTEST_HIGHSCORE
+            )
+    else:
+        logging.error("Update highscore failed, message text was missing in %s",
+            config.CONTEST_HIGHSCORE
+        )
+        return False
 
 def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""

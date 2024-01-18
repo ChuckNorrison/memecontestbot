@@ -81,7 +81,8 @@ CREATE_CSV = True
 CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
 
 # Add winner photo in final message
-# True to add or False to disable the winner photo for final message
+# True to add automatically, False to disable the winner photo
+# or a valid path to a custom photo for final ranking message
 POST_WINNER_PHOTO = True
 
 # Read author_signature from signed message

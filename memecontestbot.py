@@ -1269,14 +1269,19 @@ async def send_ranking_message(final_message, winner):
     """verify and send ranking message"""
     if config.FINAL_MESSAGE_CHAT_ID:
 
-        if winner['photo'] != "" and config.POST_WINNER_PHOTO:
+        custom_photo = os.path.isfile(config.POST_WINNER_PHOTO)
+        if ( (winner['photo'] != "" and config.POST_WINNER_PHOTO)
+                or custom_photo ):
 
-            # check if photo is a postlink
-            if "https://t.me/" in winner['photo']:
-                photo_id = await get_photo_id_from_postlink(winner['photo'])
-                if photo_id:
-                    # set photo id
-                    winner['photo'] = photo_id
+            if custom_photo:
+                winner['photo'] = config.POST_WINNER_PHOTO
+            else:
+                # check if photo is a postlink
+                if "https://t.me/" in winner['photo']:
+                    photo_id = await get_photo_id_from_postlink(winner['photo'])
+                    if photo_id:
+                        # set photo id
+                        winner['photo'] = photo_id
 
             await send_photo_caption(
                 config.FINAL_MESSAGE_CHAT_ID,

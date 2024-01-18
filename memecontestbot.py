@@ -1269,7 +1269,7 @@ async def send_ranking_message(final_message, winner):
     """verify and send ranking message"""
     if config.FINAL_MESSAGE_CHAT_ID:
 
-        custom_photo = os.path.isfile(config.POST_WINNER_PHOTO)
+        custom_photo = os.path.isfile(str(config.POST_WINNER_PHOTO))
         if ( (winner['photo'] != "" and config.POST_WINNER_PHOTO)
                 or custom_photo ):
 

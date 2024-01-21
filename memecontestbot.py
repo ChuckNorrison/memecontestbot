@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.4.4"
+VERSION_NUMBER = "v1.4.5"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -703,9 +703,18 @@ def create_ranking(participants, unique_ranks = False, sort = True):
 # Highscore methods
 ###########################
 
+def find_url_entities(message):
+    """Try to find URL based entities in message"""
+    url_entities = []
+    for entity in message.caption_entities:
+        if entity.url:
+            url_entities.append(entity)
+    return url_entities
+
 async def update_highscore(winner_name):
     """Update the highscore message"""
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
+    entities = find_url_entities(message)
 
     if hasattr(message, 'caption'):
         # this is a photo message
@@ -755,6 +764,7 @@ async def update_highscore(winner_name):
                             highscore_lines[next_line],
                             winner_name
                         )
+
             # remember the line and modifications in a new array
             new_highscore_lines.append(line)
 
@@ -783,7 +793,7 @@ async def update_highscore(winner_name):
             message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
             if chat_id and message_id:
                 try:
-                    await app.edit_message_text(chat_id, message_id, new_highscore)
+                    await app.edit_message_text(chat_id, message_id, new_highscore, entities = entities)
                 except MessageNotModified as ex_modified:
                     logging.warning(ex_modified)
             else:

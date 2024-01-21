@@ -51,7 +51,7 @@ async def main():
         # inactivities Mode: create a message of inactive participants
         msg = get_inactivities_from_csv()
 
-    elif ( config.PARTICIPANTS_FROM_CSV and not 
+    elif ( config.PARTICIPANTS_FROM_CSV and not
                 (config.CONTEST_POLL or config.CONTEST_POLL_RESULT) ):
         # CSV Mode: Create a ranking message from CSV data
         participants = get_participants_from_csv()

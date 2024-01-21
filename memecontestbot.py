@@ -715,6 +715,7 @@ async def update_highscore(winner_name):
     """Update the highscore message"""
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
     entities = find_url_entities(message)
+    add_entity_offset = 0
 
     if hasattr(message, 'caption'):
         # this is a photo message
@@ -743,6 +744,7 @@ async def update_highscore(winner_name):
         count_lines = 0
         next_line = 0
         rank_prefix = ""
+
         for line in highscore_lines:
             count_lines += 1
             if len(line) >= 2:
@@ -754,21 +756,24 @@ async def update_highscore(winner_name):
                     next_line = count_lines
 
                     if line.lower().find(winner_name.lower()) > 0:
-                        found_winner = True
-                        logging.info("Update highscore for %s (ranks: %d)",
-                            winner_name,
-                            count_ranks
-                        )
-                        line, highscore_lines[next_line] = update_highscore_line(
-                            line,
-                            highscore_lines[next_line],
-                            winner_name
-                        )
+                        check_winner = line.split(" ")
+                        if winner_name.lower() == check_winner[2]:
+                            found_winner = True
+                            logging.info("Update highscore for %s (ranks: %d)",
+                                winner_name,
+                                count_ranks
+                            )
+                            line, highscore_lines[next_line] = update_highscore_line(
+                                line,
+                                highscore_lines[next_line],
+                                winner_name
+                            )
 
             # remember the line and modifications in a new array
             new_highscore_lines.append(line)
 
         if not found_winner:
+            add_entity_offset += 1
             # append winner to highscore
             if new_highscore_lines[next_line] == "":
                 found_winner = True
@@ -787,13 +792,21 @@ async def update_highscore(winner_name):
         # rebuild the highscore message from modified lines
         new_highscore = "\n".join(new_highscore_lines)
 
+        # fix entity offsets, do not break links
+        add_entity_offset += len(new_highscore) - len(highscore)
+        for entity in entities:
+            if hasattr(entity,"offset"):
+                entity.offset = entity.offset + add_entity_offset
+
         # finally update highscore message
         if found_winner:
             chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
             message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
             if chat_id and message_id:
                 try:
-                    await app.edit_message_text(chat_id, message_id, new_highscore, entities = entities)
+                    await app.edit_message_text(
+                            chat_id, message_id, new_highscore, entities = entities
+                    )
                 except MessageNotModified as ex_modified:
                     logging.warning(ex_modified)
             else:
@@ -815,6 +828,7 @@ async def update_highscore(winner_name):
 def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""
     medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
+
     if medal_pos > 0 or re.findall("[a-zA-Z]", next_line):
         if not line[medal_pos-1] == "x" or medal_pos == -1:
             if re.findall(config.RANKING_WINNER_SUFFIX, line):

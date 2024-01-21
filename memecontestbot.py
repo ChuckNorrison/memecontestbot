@@ -51,7 +51,8 @@ async def main():
         # inactivities Mode: create a message of inactive participants
         msg = get_inactivities_from_csv()
 
-    elif config.PARTICIPANTS_FROM_CSV:
+    elif ( config.PARTICIPANTS_FROM_CSV and not 
+                (config.CONTEST_POLL or config.CONTEST_POLL_RESULT) ):
         # CSV Mode: Create a ranking message from CSV data
         participants = get_participants_from_csv()
         final_message, winner = create_ranking(participants)
@@ -705,11 +706,14 @@ def create_ranking(participants, unique_ranks = False, sort = True):
 async def update_highscore(winner_name):
     """Update the highscore message"""
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
+
     if hasattr(message, 'caption'):
         # this is a photo message
+        logging.info("highscore caption found")
         highscore = message.caption
     elif hasattr(message, 'text'):
         # this is a standard message
+        logging.info("highscore text found")
         highscore = message.text
     else:
         logging.error("Update highscore failed, "
@@ -1164,15 +1168,22 @@ async def create_poll():
         )
 
         # create question message
-        poll_question = (
-            "Die Wahl zum Meme der Woche\n"
-            f"vom {poll_start_date} - {poll_end_date} (24h Abstimmung)"
-        )
+        poll_message_header = config.CONTEST_POLL_HEADER
+        if "TEMPLATE_START_DATE" in poll_message_header:
+            poll_message_header = poll_message_header.replace(
+                r"{TEMPLATE_START_DATE}",
+                str(poll_start_date)
+            )
+        if "TEMPLATE_END_DATE" in poll_message_header:
+            poll_message_header = poll_message_header.replace(
+                r"{TEMPLATE_END_DATE}",
+                str(poll_end_date)
+            )
 
         if len(media_group_message) > 0:
             await app.send_poll(
                 config.FINAL_MESSAGE_CHAT_ID,
-                poll_question,
+                poll_message_header,
                 poll_answers,
                 reply_to_message_id=media_group_message[0].id
             )

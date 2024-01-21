@@ -884,6 +884,11 @@ async def find_open_poll():
         if str(message.media) != "MessageMediaType.POLL":
             continue
 
+        if hasattr(message, 'forward_from_message_id'):
+            if message.forward_from_message_id is not None:
+                # this was a forwarded poll, can not be evaluated
+                continue
+
         # the first poll we find needs to be open to evaluate
         if message.poll.is_closed:
             logging.info(

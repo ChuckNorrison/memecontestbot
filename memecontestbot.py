@@ -742,11 +742,17 @@ async def update_highscore(winner_name):
 
         count_ranks = 0
         count_lines = 0
+        count_offset = 0
         next_line = 0
         rank_prefix = ""
 
         for line in highscore_lines:
             count_lines += 1
+
+            # remember amount of chars as offset till the highscore list begins
+            if count_ranks == 0:
+                count_offset += len(line)
+
             if len(line) >= 2:
                 if line[0].isdigit() or line[1].isdigit():
                     # remember rank prefix like # if used
@@ -796,7 +802,9 @@ async def update_highscore(winner_name):
         add_entity_offset += len(new_highscore) - len(highscore)
         for entity in entities:
             if hasattr(entity,"offset"):
-                entity.offset = entity.offset + add_entity_offset
+                # only entities after the list has grown
+                if count_offset < entity.offset:
+                    entity.offset = entity.offset + add_entity_offset
 
         # finally update highscore message
         if found_winner:

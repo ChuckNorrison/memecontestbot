@@ -1,2 +1,2 @@
-pyrogram>=2
+pyrogram>=2.0.106
 Pillow>=9

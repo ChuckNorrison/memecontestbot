@@ -609,7 +609,7 @@ def create_ranking(participants, unique_ranks = False, sort = True):
     # init vars
     rank = 0
     last_count = 0
-    winner = { "display_name": "", "photo": "" }
+    winner = { "display_name": "", "photo": "", "count": "" }
     final_message = ""
     templ_winner = "Unbekannt"
     templ_count = 0
@@ -637,6 +637,7 @@ def create_ranking(participants, unique_ranks = False, sort = True):
             elif "postlink" in participant:
                 # csv mode
                 winner['photo'] = participant["postlink"]
+            winner['count'] = winner_count
 
         # author prefix for telegram handle
         if not config.SIGN_MESSAGES:
@@ -684,11 +685,12 @@ def create_ranking(participants, unique_ranks = False, sort = True):
             r"{TEMPLATE_VOTES}",
             str(templ_count)
         )
+    config.FINAL_MESSAGE_HEADER = header_message
     winner['display_name'] = templ_winner
 
     # build final message
     final_message = (
-        header_message
+        config.FINAL_MESSAGE_HEADER
         + ":\n\n"
         + final_message
         + "\n"
@@ -1053,9 +1055,9 @@ async def evaluate_poll():
                 else:
                     final_message_header = config.FINAL_MESSAGE_HEADER
 
-                if "TEMPLATE_VOTES" in final_message_header:
+                if "TEMPLATE_POLL_VOTES" in final_message_header:
                     final_message_header = final_message_header.replace(
-                        r"{TEMPLATE_VOTES}",
+                        r"{TEMPLATE_POLL_VOTES}",
                         str(best_vote_count)
                     )
                 if "TEMPLATE_TIME" in final_message_header:
@@ -1089,6 +1091,7 @@ async def evaluate_poll():
                                 contest_days = config.CONTEST_DAYS+1
                         )
                         final_message, winner = create_ranking(participants)
+
                     if config.CONTEST_HIGHSCORE:
                         await update_highscore(winner['display_name'])
                 else:

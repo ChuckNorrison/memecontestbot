@@ -20,10 +20,6 @@ CONTEST_DAYS = 7
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = 10
 
-# Create a poll with numbered images from winners found
-# True or False
-CONTEST_POLL = False
-
 # Evaluate the last poll found and
 # Overrides CONTEST_POLL
 # True or False
@@ -73,35 +69,17 @@ FINAL_MESSAGE_FOOTER = f"üèÜ [{EXCLUDE_PATTERN[0]}](https://t.me/memecontest) 
 # with ranking and winner photo or set to False
 FINAL_MESSAGE_CHAT_ID = CHAT_ID
 
-# Collect all CSV data and write new overall CSV file
-# Set config to True or False
-PARTICIPANTS_FROM_CSV = False
-
 # link the ranked post
 # in final message on the result counter
 POST_LINK = False
-
-# Create a CSV file with all participants found
-CREATE_CSV = False
-
-# Send CSV file to a given chat id
-CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
 
 # Add winner photo in final message
 # True to add or False to disable the winner photo for final message
 POST_WINNER_PHOTO = True
 
-# Read author_signature from signed message
-# True or False to find author from message caption instead
-SIGN_MESSAGES = False
-
 # Ranking based on memes not authors
 # True or False to rank the authors instead
 RANK_MEMES = False
-
-# Send Contest Participant found from CHAT_ID to this chat
-# or set to False to disable this feature
-POST_PARTICIPANTS_CHAT_ID = False
 
 # END TWEAK CONFIG
 #########################

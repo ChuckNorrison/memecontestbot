@@ -24,15 +24,6 @@ CONTEST_DAYS = monthrange(int(year), int(month))[1]
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = 10
 
-# Create a poll to vote from numbered images
-# True or False
-CONTEST_POLL = False
-
-# Evaluate the last poll found
-# Overrides CONTEST_POLL
-# True or False
-CONTEST_POLL_RESULT = False
-
 # Update the highscore message with winner
 # If not exist, create a message first
 # False or postlink (https://t.me/c/{chat_id}/{message_id})
@@ -71,7 +62,9 @@ PARTICIPANTS_FROM_CSV = True
 # Needs at least 30 Days of CSV Data
 #PARTICIPANTS_LIST = False
 
-# Create a CSV file with all participants found (True or False)
+# Path to a CSV File oder False
+# Ranking Mode: Define path to file if PARTICIPANTS_FROM_CSV is used
+# Collect Mode: Set to check repost against unique ids
 CSV_FILE = (
     "contest_contestmeme_"
     + f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')}"
@@ -89,10 +82,6 @@ POST_LINK = False
 # Add winner photo in final message
 # True to add or False to disable the winner photo for final message
 POST_WINNER_PHOTO = False
-
-# Read author_signature from signed message
-# True or False to find author from message caption instead
-SIGN_MESSAGES = False
 
 # Ranking based on memes not authors
 # True or False to rank the authors instead

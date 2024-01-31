@@ -36,20 +36,21 @@ CONTEST_POLL_RESULT = False
 # False for random colors or RGB, set as array [212, 175, 55]
 CONTEST_POLL_COLOR = [212, 175, 55]
 
-# Update the highscore message with medals for winner
+# Update the highscore message with winner
+# If not exist, create a message manually first
 # False or postlink (https://t.me/c/{chat_id}/{message_id})
 CONTEST_HIGHSCORE = False
 
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
-EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
+EXCLUDE_PATTERN = ["Meme Contest", "Ranking"]
 
 # text header to print on top of final messages
 # Template variables:
 # - ranking mode: {TEMPLATE_WINNER}, {TEMPLATE_VOTES}
 # - poll mode: {TEMPLATE_TIME}, {TEMPLATE_POLL_WINNER},
 #   {TEMPLATE_POLL_WINNER_SECOND}, {TEMPLATE_POLL_VOTES}
-FINAL_MESSAGE_HEADER = "Rangliste 24-Stunden "
+FINAL_MESSAGE_HEADER = "Ranking 24-hours "
 
 # simple text footer in ranking view,
 # should be used to identify exclude posts
@@ -66,7 +67,7 @@ PARTICIPANTS_FROM_CSV = False
 
 # Print eternal list of participants and override everything else
 # Needs at least 30 Days of CSV Data to collect
-PARTICIPANTS_LIST = True
+PARTICIPANTS_LIST = False
 
 # Used to allow duplicates to collect historical data
 PARTICIPANT_DUPLICATES = False
@@ -75,7 +76,16 @@ PARTICIPANT_DUPLICATES = False
 # in final message on the result counter
 POST_LINK = True
 
-# Create or append Data to CSV file
+# Path to a CSV File oder False
+# Ranking Mode: Define path to file if PARTICIPANTS_FROM_CSV is used
+# Collect Mode: Set to check repost against unique ids
+CSV_FILE = (
+    "contest_memecontest_"
+    + f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')}"
+    + ".csv"
+)
+# Ranking Mode: Create or update the CSV_FILE
+# with all participants found
 CREATE_CSV = True
 
 # Send CSV file to a given chat id
@@ -88,7 +98,7 @@ POST_WINNER_PHOTO = True
 
 # Read author_signature from signed message
 # True or False to find author from message caption instead
-SIGN_MESSAGES = True
+SIGN_MESSAGES = False
 
 # Ranking based on memes not authors (True)
 # or sum up all reactions based by author instead (False)

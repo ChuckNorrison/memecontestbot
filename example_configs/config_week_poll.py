@@ -24,11 +24,6 @@ CONTEST_MAX_RANKS = 7
 # True or False
 CONTEST_POLL = True
 
-# Evaluate the last poll found and
-# Overrides CONTEST_POLL
-# True or False
-CONTEST_POLL_RESULT = False
-
 # Set color for numbered photos
 # False for random colors or RGB, set as array [212, 175, 55]
 CONTEST_POLL_COLOR = [212, 175, 55]
@@ -64,32 +59,22 @@ PARTICIPANTS_FROM_CSV = True
 # in final message on the result counter
 POST_LINK = True
 
-# Create a CSV file with all participants found
+# Path to a CSV File or False
+# Ranking or Poll Mode: Define path to file if PARTICIPANTS_FROM_CSV is used
+# Collect Mode: Set to check repost against unique ids
 CSV_FILE = (
     "contest_contestmeme_"
     + f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')}"
     + ".csv"
 )
-CREATE_CSV = False
-
-# Send CSV file to a given chat id
-CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
 
 # Add winner photo in final message
 # True to add or False to disable the winner photo for final message
 POST_WINNER_PHOTO = False
 
-# Read author_signature from signed message
-# True or False to find author from message caption instead
-SIGN_MESSAGES = False
-
 # Ranking based on memes not authors
 # True or False to rank the authors instead
 RANK_MEMES = True
-
-# Send Contest Participant found from CHAT_ID to this chat
-# or set to False to disable this feature
-POST_PARTICIPANTS_CHAT_ID = False
 
 # END TWEAK CONFIG
 #########################

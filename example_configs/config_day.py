@@ -20,15 +20,6 @@ CONTEST_DAYS = 1
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = 10
 
-# Create a poll with numbered images from winners found
-# True or False
-CONTEST_POLL = False
-
-# Evaluate the last poll found and
-# Overrides CONTEST_POLL
-# True or False
-CONTEST_POLL_RESULT = False
-
 # Update the highscore message with winner
 # If not exist, create a message first
 # False or postlink (https://t.me/c/{chat_id}/{message_id})
@@ -63,12 +54,16 @@ PARTICIPANTS_FROM_CSV = False
 # in final message on the result counter
 POST_LINK = True
 
-# Create a CSV file with all participants found
+# Path to a CSV File oder False
+# Ranking Mode: Define path to file if PARTICIPANTS_FROM_CSV is used
+# Collect Mode: Set to check repost against unique ids
 CSV_FILE = (
     "contest_contestmeme_"
     + f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')}"
     + ".csv"
 )
+# Ranking Mode: Create or update the CSV_FILE
+# with all participants found
 CREATE_CSV = True
 
 # Send CSV file to a given chat id
@@ -79,17 +74,9 @@ CSV_CHAT_ID = False
 # True to add or False to disable the winner photo for final message
 POST_WINNER_PHOTO = True
 
-# Read author_signature from signed message
-# True or False to find author from message caption instead
-SIGN_MESSAGES = False
-
 # Ranking based on memes not authors
 # True or False to rank the authors instead
 RANK_MEMES = True
-
-# Send Contest Participant found from CHAT_ID to this chat
-# or set to False to disable this feature
-POST_PARTICIPANTS_CHAT_ID = False
 
 # END TWEAK CONFIG
 #########################

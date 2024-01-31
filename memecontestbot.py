@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.4.5"
+VERSION_NUMBER = "v1.4.6"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -100,41 +100,70 @@ async def main():
             if winner['display_name'] != "Unbekannt":
                 await send_ranking_message(final_message, winner)
 
-async def send_collected_photo(message, message_author):
+        else:
+            # Collect Mode
+            await start_collector(participants)
+
+async def start_collector(participants):
+    """start check and send collected participants"""
+    # get all unique file ids from CSV
+    unique_ids = get_unique_ids_from_csv()
+    # init senders array to prevent abuse
+    message_senders = []
+
+    for participant in participants:
+        # prevent from caption abuse, check sender
+        if config.LIMIT_SENDERS:
+            if participant['sender'] in message_senders:
+                logging.info(
+                    "Skip duplicate from '%s' (message id: %s)",
+                    participant['author'],
+                    participant['id']
+                )
+                continue
+            message_senders.append(participant['sender'])
+
+        # skip this message if it is a repost
+        unique_check = await check_repost(participant, unique_ids)
+        if unique_check:
+            continue
+
+        if not config.SIGN_MESSAGES:
+            participant['author'] = "@" + participant['author']
+
+        # extract hashtag from caption and update participant
+        message_hashtag = get_caption_pattern(participant['caption'], "#")
+        if message_hashtag:
+            participant['caption'] = participant['author'] + "\n\n" + message_hashtag
+        else:
+            participant['caption'] = participant['author']
+
+        # add footer
+        if config.FINAL_MESSAGE_FOOTER != "":
+            participant['caption'] = participant['caption'] + "\n\n" + config.FINAL_MESSAGE_FOOTER
+
+        await send_collected_photo(participant)
+
+async def send_collected_photo(participant):
     """send collected photo from message to POST_PARTICIPANTS_CHAT_ID"""
-    if not config.SIGN_MESSAGES:
-        message_author = "@" + message_author
-    logging.info("Collect %s (message id: %s, unique id: %s)",
-            message_author,
-            message.id,
-            message.photo.file_unique_id
+    logging.info("Collect %s (message id: %s)",
+            participant['author'],
+            participant['id']
     )
-
-    # extract hashtag from caption
-    message_hashtags = get_caption_pattern(message.caption, "#")
-    if message_hashtags:
-        photo_caption = message_author + "\n\n" + message_hashtags
-        logging.info("Hashtags: %s", message_hashtags)
-    else:
-        photo_caption = message_author
-
-    # add footer
-    if config.FINAL_MESSAGE_FOOTER != "":
-        photo_caption = photo_caption + "\n\n" + config.FINAL_MESSAGE_FOOTER
 
     # send the photo
     if config.POST_PARTICIPANTS_CHAT_ID != "TEST":
         try:
             await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
-                    message.photo.file_id,
-                    photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
+                    participant['photo_id'],
+                    participant['caption'], parse_mode=enums.ParseMode.MARKDOWN)
         except FloodWait as ex_flood:
             logging.warning("Wait %s seconds to send more photos...", ex_flood.value)
             await asyncio.sleep(ex_flood.value)
             # retry
             await app.send_photo(config.POST_PARTICIPANTS_CHAT_ID,
-                    message.photo.file_id,
-                    photo_caption, parse_mode=enums.ParseMode.MARKDOWN)
+                    participant['photo_id'],
+                    participant['caption'], parse_mode=enums.ParseMode.MARKDOWN)
 
 async def send_photo_caption(chatid, photo, caption):
     """split the photo caption into chunks if too long"""
@@ -149,11 +178,11 @@ async def send_photo_caption(chatid, photo, caption):
                     parse_mode=enums.ParseMode.MARKDOWN)
         i += 1
 
-async def check_repost(message, unique_ids):
+async def check_repost(participant, unique_ids):
     """check unique file id"""
     unique_check = False
     for unique_id in unique_ids:
-        if unique_id[1] == message.photo.file_unique_id:
+        if unique_id[1] == participant['unique_id']:
 
             # send repost message
             repost_msg = (
@@ -162,13 +191,13 @@ async def check_repost(message, unique_ids):
             )
             logging.info("%s (reply to msg id %s, photo id %s)",
                 repost_msg,
-                str(message.id),
-                str(message.photo.file_unique_id)
+                str(participant['id']),
+                str(participant['unique_id'])
             )
 
             if config.FINAL_MESSAGE_CHAT_ID:
                 await app.send_message(config.FINAL_MESSAGE_CHAT_ID, repost_msg,
-                        reply_to_message_id=message.id,
+                        reply_to_message_id=participant['id'],
                         parse_mode=enums.ParseMode.MARKDOWN)
 
             unique_check = True
@@ -180,12 +209,6 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
     """read chat history and return participants"""
     contest_time = build_strptime(config.CONTEST_DATE)
     participants = []
-
-    if config.POST_PARTICIPANTS_CHAT_ID:
-        # get all unique file ids from CSV
-        unique_ids = get_unique_ids_from_csv()
-        # init senders array to prevent abuse
-        message_senders = []
 
     async for message in app.get_chat_history(config.CHAT_ID):
 
@@ -218,18 +241,6 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
         if ( (message_difftime.days < contest_days)
                 and not message_difftime.days < 0 ):
 
-            # prevent from caption abuse, check sender
-            if config.POST_PARTICIPANTS_CHAT_ID and config.LIMIT_SENDERS:
-                message_sender = get_sender(message)
-                if message_sender in message_senders:
-                    logging.info(
-                        "Skip duplicate from '%s' (message id: %s)",
-                        message_author,
-                        message.id
-                    )
-                    continue
-                message_senders.append(message_sender)
-
             if not config.PARTICIPANT_DUPLICATES:
                 participants, duplicate = check_participant_duplicates(
                     participants,
@@ -241,15 +252,6 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
                 # Ranking mode: append to participants array to create ranking
                 new_participant = create_participant(message, message_author)
                 participants.append(new_participant)
-
-                # Collect mode
-                if config.POST_PARTICIPANTS_CHAT_ID:
-                    # skip this message if it is a repost
-                    unique_check = await check_repost(message, unique_ids)
-                    if unique_check:
-                        continue
-
-                    await send_collected_photo(message, message_author)
 
         elif message_difftime.days < 0:
             # message newer than expected or excluded, keep searching messages
@@ -268,6 +270,7 @@ def create_participant(message, author):
 
     if not config.POST_PARTICIPANTS_CHAT_ID:
         try:
+            # Ranking mode: only count one reaction
             message_counter = int(message.reactions.reactions[0].count)
             message_views = int(message.views)
         except AttributeError as ex_attr:
@@ -276,6 +279,20 @@ def create_participant(message, author):
             logging.error(ex_type)
         except IndexError as ex_index:
             logging.error(ex_index)
+    else:
+        # Collect mode: count all reactions
+        if hasattr(message, "reactions"):
+            if hasattr(message.reactions, "reactions"):
+                for reaction in message.reactions.reactions:
+                    if hasattr(reaction, "count"):
+                        if reaction.emoji == "🤮":
+                            message_counter = message_counter - (reaction.count * 2)
+                        elif reaction.emoji == "👎":
+                            message_counter = message_counter - reaction.count
+                        else:
+                            message_counter = message_counter + reaction.count
+
+    message_sender = get_sender(message)
 
     participant = {
         "count": message_counter,
@@ -283,9 +300,11 @@ def create_participant(message, author):
         "photo_id": message.photo.file_id,
         "unique_id": message.photo.file_unique_id,
         "author": author,
+        "sender": message_sender,
         "date": str(message.date),
         "id": message.id,
-        "chat_id": message.chat.id
+        "chat_id": message.chat.id,
+        "caption": message.caption
     }
     logging.info("Create Participant %s (%d votes from %s)",
             participant['author'],

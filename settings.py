@@ -105,9 +105,7 @@ def load_config():
     config.PARTICIPANTS_FROM_CSV        = getattr(config, 'PARTICIPANTS_FROM_CSV', False)
     config.POST_LINK                    = getattr(config, 'POST_LINK', True)
     config.CREATE_CSV                   = getattr(config, 'CREATE_CSV', False)
-    config.CSV_CHAT_ID                  = getattr(
-        config, 'CSV_CHAT_ID', config.FINAL_MESSAGE_CHAT_ID
-    )
+    config.CSV_CHAT_ID                  = getattr(config, 'CSV_CHAT_ID', False)
     config.POST_WINNER_PHOTO            = getattr(config, 'POST_WINNER_PHOTO', True)
     config.SIGN_MESSAGES                = getattr(config, 'SIGN_MESSAGES', False)
     config.RANK_MEMES                   = getattr(config, 'RANK_MEMES', True)

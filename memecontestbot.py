@@ -292,7 +292,10 @@ def create_participant(message, author):
                         else:
                             message_counter = message_counter + reaction.count
 
-    message_sender = get_sender(message)
+    if config.POST_PARTICIPANTS_CHAT_ID: 
+        message_sender = get_sender(message)
+    else:
+        message_sender = message.chat.id
 
     participant = {
         "count": message_counter,
@@ -797,11 +800,12 @@ async def update_highscore(winner_name):
                                 winner_name,
                                 count_ranks
                             )
-                            line, highscore_lines[next_line] = update_highscore_line(
+                            line, highscore_lines[next_line], offset = update_highscore_line(
                                 line,
                                 highscore_lines[next_line],
                                 winner_name
                             )
+                            add_entity_offset += offset
 
             # remember the line and modifications in a new array
             new_highscore_lines.append(line)
@@ -864,6 +868,7 @@ async def update_highscore(winner_name):
 def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""
     medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
+    offset = 0
 
     if medal_pos > 0 or re.findall("[a-zA-Z]", next_line):
         if not line[medal_pos-1] == "x" or medal_pos == -1:
@@ -877,7 +882,7 @@ def update_highscore_line(line, next_line, winner_name):
             else:
                 # user without medal found
                 line = line + "1x" + config.RANKING_WINNER_SUFFIX
-
+                offset += 1
                 logging.info("Update highscore medal, append new %s", config.RANKING_WINNER_SUFFIX)
         else:
             # medal counter found, increase
@@ -888,7 +893,7 @@ def update_highscore_line(line, next_line, winner_name):
         if medal_pos > 0:
             if not next_line[medal_pos-1] == "x":
                 # medal already exist, add medal counter
-                next_line = next_line.replace(config.RANKING_WINNER_SUFFIX,
+                next_line = next_line.replace(" 1x"+config.RANKING_WINNER_SUFFIX,
                     " 2x"+config.RANKING_WINNER_SUFFIX,
                     1
                 )
@@ -901,8 +906,9 @@ def update_highscore_line(line, next_line, winner_name):
             if line.endswith(winner_name):
                 line += " "
             line += "1x" + config.RANKING_WINNER_SUFFIX
+            logging.info("Update highscore first medal 1x%s", config.RANKING_WINNER_SUFFIX)
 
-    return line, next_line
+    return line, next_line, offset
 
 def update_highscore_medal_counter(line):
     """Find and update the medal counter"""

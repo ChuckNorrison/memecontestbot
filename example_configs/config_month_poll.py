@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from datetime import datetime
+from datetime import datetime, timedelta
 from calendar import monthrange, monthcalendar
 
 #########################
@@ -10,14 +10,16 @@ from calendar import monthrange, monthcalendar
 CHAT_ID = "memecontest"
 
 # only posts prior this date and time will get analyzed
-CONTEST_DATE = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#CONTEST_DATE = "2023-02-17 23:59:59" # example with fixed date and time
+#CONTEST_DATE = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+CONTEST_DATE = "2024-02-01 11:59:59" # example with fixed date and time
 
 # only posts newer than x days will be ranked.
 # 1 = 24h contest without duplicates,
 # 2+ days post with same author gets added
 year = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')
-month = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%m')
+# substract one day to retrieve the last month
+month = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S') - timedelta(days=1)
+month = month.strftime('%m')
 CONTEST_DAYS = monthrange(int(year), int(month))[1]
 
 # amount of winners to honor in ranking message

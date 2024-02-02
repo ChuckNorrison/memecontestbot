@@ -815,7 +815,7 @@ async def update_highscore(winner_name):
                     + str(count_ranks+1)
                     + "  "
                     + str(winner_name)
-                    + " "
+                    + " 1x "
                     + str(config.RANKING_WINNER_SUFFIX)
                     + "\n")
                 new_highscore_lines[next_line] += new_line
@@ -876,7 +876,7 @@ def update_highscore_line(line, next_line, winner_name):
                 logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
             else:
                 # user without medal found
-                line = line + config.RANKING_WINNER_SUFFIX
+                line = line + "1x" + config.RANKING_WINNER_SUFFIX
 
                 logging.info("Update highscore medal, append new %s", config.RANKING_WINNER_SUFFIX)
         else:
@@ -900,7 +900,7 @@ def update_highscore_line(line, next_line, winner_name):
             # first medal, just append
             if line.endswith(winner_name):
                 line += " "
-            line += config.RANKING_WINNER_SUFFIX
+            line += "1x" + config.RANKING_WINNER_SUFFIX
 
     return line, next_line
 

@@ -578,7 +578,7 @@ def get_winners(participants):
 
     return winners
 
-async def get_daily_winners():
+async def get_daily_winners(weekly=False):
     """get daily based winners, only one winner each day"""
     daily_winners = []
     contest_time = build_strptime(config.CONTEST_DATE)
@@ -589,6 +589,7 @@ async def get_daily_winners():
         participants = await get_participants(contest_days = config.CONTEST_DAYS+1)
 
     # find a winner for each contest day
+    week_numbers = []
     i = 1
     while i <= config.CONTEST_DAYS+1:
         daily_ranking_time = contest_time-timedelta(days=i)
@@ -602,12 +603,18 @@ async def get_daily_winners():
                     and (participant_diff_time.days > 0) ):
                 daily_participants.append(participant)
 
+        i += 1
+
         winner, _participants = get_winner(daily_participants)
         if winner:
+            # check if the winner is weekly or daily
+            if weekly:
+                week_number = datetime.date(build_strptime(str(winner['date']))).isocalendar()[1]
+                if week_number in week_numbers:
+                    continue
+                week_numbers.append(week_number)
             logging.info("Add Winner %s from %s", winner['author'], winner['date'])
             daily_winners.append(winner)
-
-        i += 1
 
     return daily_winners
 
@@ -1150,7 +1157,10 @@ async def evaluate_poll():
 
 async def create_poll():
     """Create a poll to vote a winner from"""
-    winners = await get_daily_winners()
+    if config.CONTEST_DAYS > 7:
+        winners = await get_daily_winners(weekly=True)
+    else:
+        winners = await get_daily_winners()
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)

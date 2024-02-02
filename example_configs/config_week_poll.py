@@ -28,9 +28,15 @@ CONTEST_POLL = True
 # False for random colors or RGB, set as array [212, 175, 55]
 CONTEST_POLL_COLOR = [212, 175, 55]
 
+# Header for poll message
+CONTEST_POLL_HEADER = (
+    "Die Wahl zum Meme der Woche\n"
+    "vom {TEMPLATE_START_DATE} - {TEMPLATE_END_DATE} (24h Abstimmung)"
+)
+
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
-EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
+EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 
 # text header to print on top of final messages
 FINAL_MESSAGE_HEADER= "Rangliste 7-Tage "

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from datetime import datetime
+from calendar import monthrange, monthcalendar
 
 #########################
 # START TWEAK CONFIG HERE
@@ -15,32 +16,44 @@ CONTEST_DATE = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 # only posts newer than x days will be ranked.
 # 1 = 24h contest without duplicates,
 # 2+ days post with same author gets added
-CONTEST_DAYS = 1
+year = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')
+month = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%m')
+CONTEST_DAYS = monthrange(int(year), int(month))[1]
 
 # amount of winners to honor in ranking message
-CONTEST_MAX_RANKS = 10
+CONTEST_MAX_RANKS = len(monthcalendar(int(year), int(month)))
 
-# Update the highscore message with winner
-# If not exist, create a message first
-# False or postlink (https://t.me/c/{chat_id}/{message_id})
-CONTEST_HIGHSCORE = "https://t.me/memecontest/11"
+# Create a poll with numbered images from winners found
+# True or False
+CONTEST_POLL = True
 
+# Set color for numbered photos
+# False for random colors or RGB, set as array [212, 175, 55]
+CONTEST_POLL_COLOR = [212, 175, 55]
+
+# Header for poll message
+CONTEST_POLL_HEADER = (
+    "Die Wahl zum Meme des Monats\n"
+    "vom {TEMPLATE_START_DATE} - {TEMPLATE_END_DATE} (24h Abstimmung)"
+)
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 
 # text header to print on top of final messages
-# Template variables: {TEMPLATE_WINNER}, {TEMPLATE_VOTES}
-FINAL_MESSAGE_HEADER = (
-    f"Tagessieger vom "
-    f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y')} "
-    "von {TEMPLATE_WINNER} mit {TEMPLATE_VOTES} 🏆\n\n"
-    f"Rangliste 24-Stunden "
-)
+FINAL_MESSAGE_HEADER= f"Rangliste {CONTEST_DAYS}-Days "
 
-# text footer to print on bottom of final messages,
-# Use exclude pattern in combination to filter bot messages
-FINAL_MESSAGE_FOOTER = f"🏆 [{EXCLUDE_PATTERN[0]}](https://t.me/memecontest) 🏆"
+# Display a special Icon or Symbol for the first rank
+RANKING_WINNER_SUFFIX = ""
+
+# simple text footer in ranking view,
+# should be used to identify exclude posts
+FINAL_MESSAGE_FOOTER = (
+    f"🏆 [{EXCLUDE_PATTERN[0]}](https://t.me/memecontest) 🏆"
+    "\n\nHier bitte über das "
+    "Meme des Monats abstimmen!\n"
+    "⬇️ ⬇️ ⬇️ ⬇️ ⬇️ ⬇️"
+)
 
 # Send the final message to a given chat id
 # with ranking and winner photo or set to False
@@ -48,31 +61,24 @@ FINAL_MESSAGE_CHAT_ID = CHAT_ID
 
 # Collect all CSV data and write new overall CSV file
 # Set config to True or False
-PARTICIPANTS_FROM_CSV = False
+PARTICIPANTS_FROM_CSV = True
 
 # link the ranked post
 # in final message on the result counter
 POST_LINK = True
 
-# Path to a CSV File oder False
-# Ranking Mode: Define path to file if PARTICIPANTS_FROM_CSV is used
+# Path to a CSV File or False
+# Ranking or Poll Mode: Define path to file if PARTICIPANTS_FROM_CSV is used
 # Collect Mode: Set to check repost against unique ids
 CSV_FILE = (
     "contest_contestmeme_"
     + f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')}"
     + ".csv"
 )
-# Ranking Mode: Create or update the CSV_FILE
-# with all participants found
-CREATE_CSV = True
-
-# Send CSV file to a given chat id
-#CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
-CSV_CHAT_ID = False
 
 # Add winner photo in final message
 # True to add or False to disable the winner photo for final message
-POST_WINNER_PHOTO = True
+POST_WINNER_PHOTO = False
 
 # Ranking based on memes not authors
 # True or False to rank the authors instead

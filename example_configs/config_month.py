@@ -31,7 +31,7 @@ CONTEST_HIGHSCORE = "https://t.me/memecontest/11"
 
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
-EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
+EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 
 # text header to print on top of final messages
 # TEMPLATE_WINNER = "tester"

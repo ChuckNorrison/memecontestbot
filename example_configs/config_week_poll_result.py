@@ -35,11 +35,11 @@ CONTEST_HIGHSCORE = "https://t.me/memecontest/11"
 
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
-EXCLUDE_PATTERN = ["Meme Contest", "Tagessieger", "Rangliste"]
+EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 
 # text header to print on top of final messages
 FINAL_MESSAGE_HEADER= (
-    "Ihr habt mit {TEMPLATE_VOTES} Stimmen gewählt,\n"
+    "Ihr habt mit {TEMPLATE_POLL_VOTES} Stimmen gewählt,\n"
     "Das Meme der Woche vom {TEMPLATE_TIME}\n"
     "geht an {TEMPLATE_POLL_WINNER}\n\n"
     "Wochensieger vom "
@@ -49,7 +49,7 @@ FINAL_MESSAGE_HEADER= (
 )
 
 FINAL_MESSAGE_HEADER_DRAW = (
-    "Gleichstand mit je {TEMPLATE_VOTES} Stimmen!\n"
+    "Gleichstand mit je {TEMPLATE_POLL_VOTES} Stimmen!\n"
     "Das Meme der Woche vom {TEMPLATE_TIME}\n"
     "geht an {TEMPLATE_POLL_WINNER} und {TEMPLATE_POLL_WINNER_SECOND}\n\n"
     "Wochensieger vom "
@@ -59,7 +59,7 @@ FINAL_MESSAGE_HEADER_DRAW = (
 )
 
 # Display a special Icon or Symbol for the first rank
-RANKING_WINNER_SUFFIX = "🎖"
+RANKING_WINNER_SUFFIX = "🎭"
 
 # simple text footer in ranking view,
 # should be used to identify exclude posts

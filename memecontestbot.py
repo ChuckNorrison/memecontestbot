@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.4.6"
+VERSION_NUMBER = "v1.5.0"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -955,7 +955,7 @@ async def find_open_poll():
 
         # the first poll we find needs to be open to evaluate
         if message.poll.is_closed:
-            logging.info(
+            logging.warning(
                 "Last poll found is already closed, "
                 "nothing to evaluate! (message id: %s)",
                 message.id
@@ -964,6 +964,9 @@ async def find_open_poll():
             poll_message = message
 
         break
+
+    if not poll_message:
+        logging.warning("No poll found, nothing to evaluate!")
 
     return poll_message
 

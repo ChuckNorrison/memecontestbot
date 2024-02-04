@@ -608,6 +608,9 @@ async def get_daily_winners(weekly=False):
 
         i += 1
 
+        # sort participants by views
+        daily_participants = sorted(daily_participants,
+                key=lambda x: x['views'], reverse = True)
         winner, _participants = get_winner(daily_participants)
         if winner:
             # check if the winner is weekly or daily

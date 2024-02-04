@@ -624,7 +624,7 @@ async def get_daily_winners(weekly=False):
 
     return daily_winners
 
-def create_ranking(participants, unique_ranks = False, sort = True):
+def create_ranking(participants, unique_ranks = False, sort = True, caption = True):
     """Build the final ranking message"""
     logging.info("Create ranking (%d Participants)", len(participants))
 
@@ -704,7 +704,10 @@ def create_ranking(participants, unique_ranks = False, sort = True):
         if i > config.CONTEST_MAX_RANKS:
             break
 
-    header_message = build_ranking_caption()
+    if caption:
+        header_message = build_ranking_caption()
+    else:
+        header_message = config.FINAL_MESSAGE_HEADER
 
     # update placeholder
     if "TEMPLATE_WINNER" in header_message:
@@ -1176,7 +1179,7 @@ async def create_poll():
 
     # create the ranking message
     ranking_winners = copy.deepcopy(winners)
-    final_message, _winner = create_ranking(ranking_winners, True, False)
+    final_message, _winner = create_ranking(ranking_winners, True, False, False)
 
     # create numbered photos from winners
     media_group = []

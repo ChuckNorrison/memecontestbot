@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.0"
+VERSION_NUMBER = "v1.5.1"
 
 config = settings.load_config()
 api = settings.load_api()

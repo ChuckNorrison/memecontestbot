@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.1"
+VERSION_NUMBER = "v1.5.2"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -1156,7 +1156,7 @@ async def evaluate_poll():
 
             if config.CONTEST_HIGHSCORE:
                 for winner in poll_winners:
-                    winner.replace(config.RANKING_WINNER_SUFFIX, "")
+                    winner = winner.replace(config.RANKING_WINNER_SUFFIX, "")
                     await update_highscore(winner)
 
             result = True

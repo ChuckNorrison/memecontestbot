@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.2"
+VERSION_NUMBER = "v1.5.3"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -550,11 +550,16 @@ def get_winner(participants):
     winner = []
     winner_id = -1
 
+    if config.CONTEST_RANKING_BY_VIEWS:
+        count = "views"
+    else:
+        count = "count"
+
     i = 0
     for participant in participants:
 
-        if participant["count"] >= best_count:
-            best_count = participant["count"]
+        if participant[count] >= best_count:
+            best_count = participant[count]
             winner = participant
             winner_id = i
 
@@ -641,7 +646,7 @@ def create_ranking(participants, unique_ranks = False, sort = True, caption = Tr
     # init vars
     rank = 0
     last_count = 0
-    winner = { "display_name": "", "photo": "", "count": "" }
+    winner = { "display_name": "", "photo": "", "count": 0, "views": 0 }
     final_message = ""
     templ_winner = "Unbekannt"
     templ_count = 0
@@ -649,7 +654,10 @@ def create_ranking(participants, unique_ranks = False, sort = True, caption = Tr
     i = 1
     for participant in winners:
 
-        winner_count = participant["count"]
+        if config.CONTEST_RANKING_BY_VIEWS:
+            winner_count = participant["views"]
+        else:
+            winner_count = participant["count"]
 
         # update rank
         if not unique_ranks:

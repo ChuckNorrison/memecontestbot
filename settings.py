@@ -83,6 +83,7 @@ def load_config():
     )
     config.CONTEST_DAYS                 = getattr(config, 'CONTEST_DAYS', 1)
     config.CONTEST_MAX_RANKS            = getattr(config, 'CONTEST_MAX_RANKS', 10)
+    config.CONTEST_RANKING_BY_VIEWS     = getattr(config, 'CONTEST_RANKING_BY_VIEWS', False)
     config.CONTEST_POLL                 = getattr(config, 'CONTEST_POLL', False)
     config.CONTEST_POLL_HEADER          = getattr(config, 'CONTEST_POLL_HEADER', (
         "Community voting for Meme of the week\n"

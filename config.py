@@ -23,6 +23,10 @@ CONTEST_DAYS = 1
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = 10
 
+# Create a ranking based on views count and not reactions
+# True or False
+CONTEST_RANKING_BY_VIEWS = False
+
 # Create a poll with numbered images from winners found
 # True or False
 CONTEST_POLL = False
@@ -45,7 +49,7 @@ CONTEST_HIGHSCORE = False
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Ranking"]
 
-# text header to print on top of final messages
+# Text header to print on top of final messages
 # Template variables:
 # - ranking mode: {TEMPLATE_WINNER}, {TEMPLATE_VOTES}
 # - poll mode: {TEMPLATE_TIME}, {TEMPLATE_POLL_WINNER},

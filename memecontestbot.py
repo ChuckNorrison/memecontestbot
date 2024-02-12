@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 """
-Bot to analyze telegram post reactions and create a ranking.
-Can be configured for daily and weekly rankings,
-collect and repost messages, log results to CSV or
-update a highscore message.
+- Walk through telegram chat or CSV data and count 
+media reactions or views and create a ranking message.
+- Create configs for daily, weekly and monthly rankings 
+or polls to vote from.
+- Collect and repost media in another Chat.
+- Update a highscore message with winners automatically.
 
 Usage:
-Start bot to create a ranking message
-or set some configurations for advanced usage
+Create or edit the config file and start.
+Use parameter -c or --config to set a custom config path.
+Check available config variables from settings.py or README.md.
 """
 
 # default imports
@@ -34,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.3"
+VERSION_NUMBER = "v1.5.4"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -806,9 +809,9 @@ async def update_highscore(winner_name):
                     count_ranks += 1
                     next_line = count_lines
 
-                    if line.lower().find(winner_name.lower()) > 0:
+                    if line.lower().find(winner_name.lower()) > 1:
                         check_winner = line.split(" ")
-                        if winner_name.lower() == check_winner[2]:
+                        if winner_name.lower() == check_winner[2].lower():
                             found_winner = True
                             logging.info("Update highscore for %s (ranks: %d)",
                                 winner_name,
@@ -833,7 +836,7 @@ async def update_highscore(winner_name):
                     + str(count_ranks+1)
                     + "  "
                     + str(winner_name)
-                    + " 1x "
+                    + " 1x"
                     + str(config.RANKING_WINNER_SUFFIX)
                     + "\n")
                 new_highscore_lines[next_line] += new_line

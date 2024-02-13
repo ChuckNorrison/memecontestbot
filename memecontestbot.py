@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-- Walk through telegram chat or CSV data and count 
+- Walk through telegram chat or CSV data and count
 media reactions or views and create a ranking message.
-- Create configs for daily, weekly and monthly rankings 
+- Create configs for daily, weekly and monthly rankings
 or polls to vote from.
 - Collect and repost media in another Chat.
 - Update a highscore message with winners automatically.
@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.4"
+VERSION_NUMBER = "v1.5.5"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -295,7 +295,7 @@ def create_participant(message, author):
                         else:
                             message_counter = message_counter + reaction.count
 
-    if config.POST_PARTICIPANTS_CHAT_ID: 
+    if config.POST_PARTICIPANTS_CHAT_ID:
         message_sender = get_sender(message)
     else:
         message_sender = message.chat.id
@@ -781,106 +781,112 @@ async def update_highscore(winner_name):
         )
         return False
 
-    if highscore:
-        # find and edit the winner
-        new_highscore = ""
-        highscore_lines = highscore.split("\n")
-        new_highscore_lines = []
-        found_winner = False
-
-        count_ranks = 0
-        count_lines = 0
-        count_offset = 0
-        next_line = 0
-        rank_prefix = ""
-
-        for line in highscore_lines:
-            count_lines += 1
-
-            # remember amount of chars as offset till the highscore list begins
-            if count_ranks == 0:
-                count_offset += len(line)
-
-            if len(line) >= 2:
-                if line[0].isdigit() or line[1].isdigit():
-                    # remember rank prefix like # if used
-                    if not line[0].isdigit():
-                        rank_prefix = line[0]
-                    count_ranks += 1
-                    next_line = count_lines
-
-                    if line.lower().find(winner_name.lower()) > 1:
-                        check_winner = line.split(" ")
-                        if winner_name.lower() == check_winner[2].lower():
-                            found_winner = True
-                            logging.info("Update highscore for %s (ranks: %d)",
-                                winner_name,
-                                count_ranks
-                            )
-                            line, highscore_lines[next_line], offset = update_highscore_line(
-                                line,
-                                highscore_lines[next_line],
-                                winner_name
-                            )
-                            add_entity_offset += offset
-
-            # remember the line and modifications in a new array
-            new_highscore_lines.append(line)
-
-        if not found_winner:
-            add_entity_offset += 1
-            # append winner to highscore
-            if new_highscore_lines[next_line] == "":
-                found_winner = True
-                new_line = (str(rank_prefix)
-                    + str(count_ranks+1)
-                    + "  "
-                    + str(winner_name)
-                    + " 1x"
-                    + str(config.RANKING_WINNER_SUFFIX)
-                    + "\n")
-                new_highscore_lines[next_line] += new_line
-                logging.info("Update highscore append new %s",
-                    new_highscore_lines[next_line]
-                )
-
-        # rebuild the highscore message from modified lines
-        new_highscore = "\n".join(new_highscore_lines)
-
-        # fix entity offsets, do not break links
-        add_entity_offset += len(new_highscore) - len(highscore)
-        for entity in entities:
-            if hasattr(entity,"offset"):
-                # only entities after the list has grown
-                if count_offset < entity.offset:
-                    entity.offset = entity.offset + add_entity_offset
-
-        # finally update highscore message
-        if found_winner:
-            chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
-            message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
-            if chat_id and message_id:
-                try:
-                    await app.edit_message_text(
-                            chat_id, message_id, new_highscore, entities = entities
-                    )
-                except MessageNotModified as ex_modified:
-                    logging.warning(ex_modified)
-            else:
-                logging.error("Update highscore failed, "
-                    "chat id and/or message id was not found in %s",
-                    config.CONTEST_HIGHSCORE
-                )
-        else:
-            logging.warning("Update highscore: winner %s was not found in highscore (%s)",
-                winner_name,
-                config.CONTEST_HIGHSCORE
-            )
-    else:
+    if not highscore:
         logging.error("Update highscore failed, message text was missing in %s",
             config.CONTEST_HIGHSCORE
         )
         return False
+
+    # find and edit the winner
+    new_highscore = ""
+    highscore_lines = highscore.split("\n")
+    new_highscore_lines = []
+    found_winner = False
+
+    count_ranks = 0
+    count_lines = 0
+    count_offset = 0
+    next_line = 0
+    rank_prefix = ""
+
+    for line in highscore_lines:
+        count_lines += 1
+
+        # remember amount of chars as offset till the highscore list begins
+        if count_ranks == 0:
+            count_offset += len(line)
+
+        if len(line) < 2:
+            continue
+
+        if line[0].isdigit() or line[1].isdigit():
+            # remember rank prefix like # if used
+            if not line[0].isdigit():
+                rank_prefix = line[0]
+            count_ranks += 1
+            next_line = count_lines
+
+            if line.lower().find(winner_name.lower()) > 0:
+
+                check_winner = line.split(" ")
+                if len(check_winner) < 3:
+                    continue
+
+                if winner_name.lower() == check_winner[2].lower():
+                    found_winner = True
+                    logging.info("Update highscore for %s (ranks: %d)",
+                        winner_name,
+                        count_ranks
+                    )
+                    line, highscore_lines[next_line], offset = update_highscore_line(
+                        line,
+                        highscore_lines[next_line],
+                        winner_name
+                    )
+                    add_entity_offset += offset
+
+        # remember the line and modifications in a new array
+        new_highscore_lines.append(line)
+
+    if not found_winner:
+        add_entity_offset += 1
+        # append winner to highscore
+        if new_highscore_lines[next_line] == "":
+            found_winner = True
+            new_line = (str(rank_prefix)
+                + str(count_ranks+1)
+                + "  "
+                + str(winner_name)
+                + " 1x"
+                + str(config.RANKING_WINNER_SUFFIX)
+                + "\n")
+            new_highscore_lines[next_line] += new_line
+            logging.info("Update highscore append new %s",
+                new_highscore_lines[next_line]
+            )
+
+    # rebuild the highscore message from modified lines
+    new_highscore = "\n".join(new_highscore_lines)
+
+    # fix entity offsets, do not break links
+    add_entity_offset += len(new_highscore) - len(highscore)
+    for entity in entities:
+        if hasattr(entity,"offset"):
+            # only entities after the list has grown
+            if count_offset < entity.offset:
+                entity.offset = entity.offset + add_entity_offset
+
+    # finally update highscore message
+    if found_winner:
+        chat_id = get_chat_id_from_postlink(config.CONTEST_HIGHSCORE)
+        message_id = get_message_id_from_postlink(config.CONTEST_HIGHSCORE)
+        if chat_id and message_id:
+            try:
+                await app.edit_message_text(
+                        chat_id, message_id, new_highscore, entities = entities
+                )
+            except MessageNotModified as ex_modified:
+                logging.warning(ex_modified)
+        else:
+            logging.error("Update highscore failed, "
+                "chat id and/or message id was not found in %s",
+                config.CONTEST_HIGHSCORE
+            )
+    else:
+        logging.warning("Update highscore: winner %s was not found in highscore (%s)",
+            winner_name,
+            config.CONTEST_HIGHSCORE
+        )
 
 def update_highscore_line(line, next_line, winner_name):
     """Update the line in highscore"""

@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.5"
+VERSION_NUMBER = "v1.5.6"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -806,34 +806,30 @@ async def update_highscore(winner_name):
         if count_ranks == 0:
             count_offset += len(line)
 
-        if len(line) < 2:
-            continue
+        if len(line) >= 2:
+            if line[0].isdigit() or line[1].isdigit():
+                # remember rank prefix like # if used
+                if not line[0].isdigit():
+                    rank_prefix = line[0]
+                count_ranks += 1
+                next_line = count_lines
 
-        if line[0].isdigit() or line[1].isdigit():
-            # remember rank prefix like # if used
-            if not line[0].isdigit():
-                rank_prefix = line[0]
-            count_ranks += 1
-            next_line = count_lines
+                if line.lower().find(winner_name.lower()) > 0:
 
-            if line.lower().find(winner_name.lower()) > 0:
-
-                check_winner = line.split(" ")
-                if len(check_winner) < 3:
-                    continue
-
-                if winner_name.lower() == check_winner[2].lower():
-                    found_winner = True
-                    logging.info("Update highscore for %s (ranks: %d)",
-                        winner_name,
-                        count_ranks
-                    )
-                    line, highscore_lines[next_line], offset = update_highscore_line(
-                        line,
-                        highscore_lines[next_line],
-                        winner_name
-                    )
-                    add_entity_offset += offset
+                    check_winner = line.split(" ")
+                    if len(check_winner) >= 3:
+                        if winner_name.lower() == check_winner[2].lower():
+                            found_winner = True
+                            logging.info("Update highscore for %s (ranks: %d)",
+                                winner_name,
+                                count_ranks
+                            )
+                            line, highscore_lines[next_line], offset = update_highscore_line(
+                                line,
+                                highscore_lines[next_line],
+                                winner_name
+                            )
+                            add_entity_offset += offset
 
         # remember the line and modifications in a new array
         new_highscore_lines.append(line)

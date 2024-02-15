@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.6"
+VERSION_NUMBER = "v1.5.7"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -767,14 +767,14 @@ async def update_highscore(winner_name):
 
     if hasattr(message, 'caption'):
         # this is a photo message
-        logging.info("highscore caption found")
+        logging.info("Update highscore: caption found in %s", config.CONTEST_HIGHSCORE)
         highscore = message.caption
     elif hasattr(message, 'text'):
         # this is a standard message
-        logging.info("highscore text found")
+        logging.info("Update highscore: text found in %s", config.CONTEST_HIGHSCORE)
         highscore = message.text
     else:
-        logging.error("Update highscore failed, "
+        logging.error("Update highscore: failed, "
             "message not found from %s ('Copy Post Link' "
             "in Telegram for valid link)",
             config.CONTEST_HIGHSCORE
@@ -782,7 +782,7 @@ async def update_highscore(winner_name):
         return False
 
     if not highscore:
-        logging.error("Update highscore failed, message text was missing in %s",
+        logging.error("Update highscore: failed, message text was missing in %s",
             config.CONTEST_HIGHSCORE
         )
         return False
@@ -820,7 +820,7 @@ async def update_highscore(winner_name):
                     if len(check_winner) >= 3:
                         if winner_name.lower() == check_winner[2].lower():
                             found_winner = True
-                            logging.info("Update highscore for %s (ranks: %d)",
+                            logging.info("Update highscore: %s (ranks: %d)",
                                 winner_name,
                                 count_ranks
                             )
@@ -847,7 +847,7 @@ async def update_highscore(winner_name):
                 + str(config.RANKING_WINNER_SUFFIX)
                 + "\n")
             new_highscore_lines[next_line] += new_line
-            logging.info("Update highscore append new %s",
+            logging.info("Update highscore: add new winner %s",
                 new_highscore_lines[next_line]
             )
 
@@ -874,7 +874,7 @@ async def update_highscore(winner_name):
             except MessageNotModified as ex_modified:
                 logging.warning(ex_modified)
         else:
-            logging.error("Update highscore failed, "
+            logging.error("Update highscore: failed, "
                 "chat id and/or message id was not found in %s",
                 config.CONTEST_HIGHSCORE
             )
@@ -889,43 +889,22 @@ def update_highscore_line(line, next_line, winner_name):
     medal_pos = line.find(config.RANKING_WINNER_SUFFIX)
     offset = 0
 
-    if medal_pos > 0 or re.findall("[a-zA-Z]", next_line):
-        if not line[medal_pos-1] == "x" or medal_pos == -1:
-            if re.findall(config.RANKING_WINNER_SUFFIX, line):
-                # medal already exist, increase medal counter
-                line = line.replace(config.RANKING_WINNER_SUFFIX,
-                    "2x"+config.RANKING_WINNER_SUFFIX,
-                    1
-                )
-                logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
-            else:
-                # user without medal found
-                line = line + "1x" + config.RANKING_WINNER_SUFFIX
-                offset += 1
-                logging.info("Update highscore medal, append new %s", config.RANKING_WINNER_SUFFIX)
-        else:
-            # medal counter found, increase
-            line = update_highscore_medal_counter(line)
+    if medal_pos > 0:
+        if not line[medal_pos-1] == "x":
+            line = line.replace(config.RANKING_WINNER_SUFFIX,
+                "1x" + config.RANKING_WINNER_SUFFIX,
+                1
+            )
+            logging.info("Update highscore: fix counter 1x%s", config.RANKING_WINNER_SUFFIX)
+        # medal counter found, increase
+        line = update_highscore_medal_counter(line)
     else:
-        # check next line for medals
-        medal_pos = next_line.find(config.RANKING_WINNER_SUFFIX)
-        if medal_pos > 0:
-            if not next_line[medal_pos-1] == "x":
-                # medal already exist, add medal counter
-                next_line = next_line.replace(" 1x"+config.RANKING_WINNER_SUFFIX,
-                    " 2x"+config.RANKING_WINNER_SUFFIX,
-                    1
-                )
-                logging.info("Update highscore medals 2x%s", config.RANKING_WINNER_SUFFIX)
-            else:
-                # medal counter found, increase
-                next_line = update_highscore_medal_counter(next_line)
-        else:
-            # first medal, just append
-            if line.endswith(winner_name):
-                line += " "
-            line += "1x" + config.RANKING_WINNER_SUFFIX
-            logging.info("Update highscore first medal 1x%s", config.RANKING_WINNER_SUFFIX)
+        # first medal, just append
+        if line.endswith(winner_name):
+            line += " "
+        line += "1x" + config.RANKING_WINNER_SUFFIX
+        offset += 1
+        logging.info("Update highscore: append new 1x%s", config.RANKING_WINNER_SUFFIX)
 
     return line, next_line, offset
 
@@ -956,7 +935,7 @@ def update_highscore_medal_counter(line):
         search_string = medal_counter + "x" + config.RANKING_WINNER_SUFFIX
         replace_string = str(int(medal_counter) + 1) + "x" + config.RANKING_WINNER_SUFFIX
         line = line.replace(search_string, replace_string)
-        logging.info("Update highscore medals %s -> %s", search_string, replace_string)
+        logging.info("Update highscore: %s -> %s", search_string, replace_string)
 
     return line
 

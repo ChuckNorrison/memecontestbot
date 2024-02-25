@@ -52,8 +52,10 @@ FINAL_MESSAGE_CHAT_ID = CHAT_ID
 # in final message on the result counter
 POST_LINK = False
 
-# Add winner photo in final message
-# True to add or False to disable the winner photo for final message
+# Add winner photo in final message (Default: True)
+# False: Disable the winner photo for final message
+# True: Find the photo automatically
+# "<Path>": A file on disk to post as photo
 POST_WINNER_PHOTO = False
 
 # Ranking based on memes not authors

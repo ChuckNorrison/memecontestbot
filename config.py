@@ -28,7 +28,7 @@ CONTEST_MAX_RANKS = 10
 CONTEST_RANKING_BY_VIEWS = False
 
 # Create a poll with numbered images from winners found
-# True or False
+# True or False (Default: False)
 CONTEST_POLL = False
 
 # Evaluate the last poll found and
@@ -52,8 +52,9 @@ EXCLUDE_PATTERN = ["Meme Contest", "Ranking"]
 # Text header to print on top of final messages
 # Template variables:
 # - ranking mode: {TEMPLATE_WINNER}, {TEMPLATE_VOTES}
-# - poll mode: {TEMPLATE_TIME}, {TEMPLATE_POLL_WINNER},
-#   {TEMPLATE_POLL_WINNER_SECOND}, {TEMPLATE_POLL_VOTES}
+# - poll create mode: {TEMPLATE_TIME}, {TEMPLATE_POLL_WINNER},
+#   {TEMPLATE_POLL_VOTES}
+# - poll evaluate mode: {TEMPLATE_START_DATE}, {TEMPLATE_END_DATE}
 FINAL_MESSAGE_HEADER = "Ranking 24-hours "
 
 # simple text footer in ranking view,
@@ -66,7 +67,7 @@ FINAL_MESSAGE_CHAT_ID = False
 
 # Generate a ranking message based on CSV data
 # could be useful for monthly rankings
-# Set True or False
+# Set config to True or False (Default: False)
 PARTICIPANTS_FROM_CSV = False
 
 # Print eternal list of participants and override everything else
@@ -78,6 +79,7 @@ PARTICIPANT_DUPLICATES = False
 
 # link the ranked post
 # in final message on the result counter
+# True or False (Default: True)
 POST_LINK = True
 
 # Path to a CSV File oder False
@@ -95,9 +97,10 @@ CREATE_CSV = True
 # Send CSV file to a given chat id
 CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
 
-# Add winner photo in final message
-# True to add automatically, False to disable the winner photo
-# or a valid path to a custom photo for final ranking message
+# Add winner photo in final message (Default: True)
+# False: Disable the winner photo for final message
+# True: Find the photo automatically
+# "<Path>": A file on disk to post as photo
 POST_WINNER_PHOTO = True
 
 # Read author_signature from signed message

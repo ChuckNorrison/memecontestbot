@@ -70,10 +70,6 @@ CREATE_CSV = True
 #CSV_CHAT_ID = FINAL_MESSAGE_CHAT_ID
 CSV_CHAT_ID = False
 
-# Add winner photo in final message
-# True to add or False to disable the winner photo for final message
-POST_WINNER_PHOTO = True
-
 # Ranking based on memes not authors
 # True or False to rank the authors instead
 RANK_MEMES = True

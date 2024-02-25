@@ -51,7 +51,8 @@ FINAL_MESSAGE_HEADER= (
 FINAL_MESSAGE_HEADER_DRAW = (
     "Gleichstand mit je {TEMPLATE_POLL_VOTES} Stimmen!\n"
     "Das Meme der Woche vom {TEMPLATE_TIME}\n"
-    "geht an {TEMPLATE_POLL_WINNER} und {TEMPLATE_POLL_WINNER_SECOND}\n\n"
+    "geht an\n\n"
+    "{TEMPLATE_POLL_WINNER}\n\n"
     "Wochensieger vom "
     f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y')}\n"
     "von {TEMPLATE_WINNER} mit {TEMPLATE_VOTES} 🏆\n\n"
@@ -72,10 +73,6 @@ FINAL_MESSAGE_CHAT_ID = CHAT_ID
 # link the ranked post
 # in final message on the result counter
 POST_LINK = False
-
-# Add winner photo in final message
-# True to add or False to disable the winner photo for final message
-POST_WINNER_PHOTO = True
 
 # Ranking based on memes not authors
 # True or False to rank the authors instead

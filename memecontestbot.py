@@ -482,9 +482,9 @@ def get_reactions(message):
         # verify reactions for ranking message
         try:
             message_reactions = message.reactions.reactions[0].count
-        except AttributeError:
+        except (AttributeError, IndexError):
             # skip this message for missing reactions
-            return False
+            message_reactions = 0
 
     return message_reactions
 

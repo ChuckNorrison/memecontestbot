@@ -754,9 +754,23 @@ def create_ranking(participants, unique_ranks = False, sort = True, caption = Tr
 def find_url_entities(message):
     """Try to find URL based entities in message"""
     url_entities = []
-    for entity in message.caption_entities:
-        if entity.url:
-            url_entities.append(entity)
+
+    if hasattr(message, "caption_entities"):
+        if message.caption_entities is not None:
+            #  photo message
+            for entity in message.caption_entities:
+                if hasattr(entity, "url"):
+                    if entity.url:
+                        url_entities.append(entity)
+
+    if hasattr(message, "entities"):
+        if message.entities is not None:
+            # standard message
+            for entity in message.entities:
+                if hasattr(entity, "url"):
+                    if entity.url:
+                        url_entities.append(entity)
+
     return url_entities
 
 async def update_highscore(winner_name):
@@ -765,21 +779,25 @@ async def update_highscore(winner_name):
     entities = find_url_entities(message)
     add_entity_offset = 0
 
-    if hasattr(message, 'caption'):
-        # this is a photo message
-        logging.info("Update highscore: caption found in %s", config.CONTEST_HIGHSCORE)
-        highscore = message.caption
-    elif hasattr(message, 'text'):
-        # this is a standard message
-        logging.info("Update highscore: text found in %s", config.CONTEST_HIGHSCORE)
-        highscore = message.text
-    else:
+    if not message:
         logging.error("Update highscore: failed, "
             "message not found from %s ('Copy Post Link' "
             "in Telegram for valid link)",
             config.CONTEST_HIGHSCORE
         )
         return False
+
+    if hasattr(message, 'text'):
+        if message.text is not None:
+            # this is a standard message
+            logging.info("Update highscore: text found in %s", config.CONTEST_HIGHSCORE)
+            highscore = message.text
+
+    if hasattr(message, 'caption'):
+        if message.caption is not None:
+            # this is a photo message
+            logging.info("Update highscore: caption found in %s", config.CONTEST_HIGHSCORE)
+            highscore = message.caption
 
     if not highscore:
         logging.error("Update highscore: failed, message text was missing in %s",

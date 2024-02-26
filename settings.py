@@ -92,9 +92,13 @@ def load_config():
     config.CONTEST_POLL_RESULT          = getattr(config, 'CONTEST_POLL_RESULT', False)
     config.CONTEST_POLL_RESULT_RANKING  = getattr(config, 'CONTEST_POLL_RESULT_RANKING', False)
     config.CONTEST_POLL_COLOR           = getattr(config, 'CONTEST_POLL_COLOR', False)
+    config.CONTEST_POLL_FROM_POLLS      = getattr(config, 'CONTEST_POLL_FROM_POLLS', False)
+    config.CONTEST_POLL_PATTERN         = getattr(
+        config, 'CONTEST_POLL_PATTERN', ["Meme of the week", "The Community has voted"]
+    )
     config.CONTEST_HIGHSCORE            = getattr(config, 'CONTEST_HIGHSCORE', False)
     config.EXCLUDE_PATTERN              = getattr(
-        config, 'EXCLUDE_PATTERN', ["Meme Contest", "Tagessieger", "Rangliste"]
+        config, 'EXCLUDE_PATTERN', ["My funny Contest", "Ranking"]
     )
     config.FINAL_MESSAGE_HEADER         = getattr(config, 'FINAL_MESSAGE_HEADER', "")
     config.FINAL_MESSAGE_HEADER_DRAW    = getattr(config, 'FINAL_MESSAGE_HEADER_DRAW', "")

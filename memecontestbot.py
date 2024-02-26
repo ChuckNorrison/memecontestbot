@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.5.8"
+VERSION_NUMBER = "v1.6.0"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -208,6 +208,25 @@ async def check_repost(participant, unique_ids):
 
     return unique_check
 
+async def check_message(message, excludes = True):
+    """check message for excludes and type"""
+    result = True
+
+    # check excludes in message caption
+    if excludes and hasattr(message, "caption"):
+        if check_excludes(message.caption):
+            result = False
+
+    # check if message is a photo
+    if hasattr(message, "media"):
+        if str(message.media) != "MessageMediaType.PHOTO":
+            result = False
+    else:
+        # only works with media yet
+        result = False
+
+    return result
+
 async def get_participants(contest_days = config.CONTEST_DAYS):
     """read chat history and return participants"""
     contest_time = build_strptime(config.CONTEST_DATE)
@@ -215,17 +234,8 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
 
     async for message in app.get_chat_history(config.CHAT_ID):
 
-        # check excludes in message caption
-        if hasattr(message, "caption"):
-            if check_excludes(message.caption):
-                continue
-
-        # check if message is a photo
-        if hasattr(message, "media"):
-            if str(message.media) != "MessageMediaType.PHOTO":
-                continue
-        else:
-            # only works with media yet
+        check = await check_message(message)
+        if not check:
             continue
 
         # check for valid author in message
@@ -277,7 +287,7 @@ def create_participant(message, author):
             message_counter = int(message.reactions.reactions[0].count)
             message_views = int(message.views)
         except AttributeError as ex_attr:
-            logging.error(ex_attr)
+            logging.warning(ex_attr)
         except TypeError as ex_type:
             logging.error(ex_type)
         except IndexError as ex_index:
@@ -401,18 +411,26 @@ def check_participant_duplicates(participants, message, message_author):
 
     return participants, duplicate
 
-def get_caption_pattern(caption, pattern, count = 1):
-    """Return findings from message caption as string"""
+def get_caption_pattern(caption, pattern, count = 1, returnAsArray = False):
+    """
+    Return findings from message caption as string
+    Set count to limit the resulting findings
+    Set returnAsArray, to return as array instead of string
+    """
     caption_findings = []
     caption_new = False
+    if returnAsArray:
+        result = []
+    else:
+        result = False
 
     if pattern in str(caption):
         message_caption_array = caption.split()
         i = 1
         for caption_word in message_caption_array:
             if caption_word.startswith(pattern):
-                # make sure nobody can inject commands here
                 if count >= i:
+                    # make sure nobody can inject commands here
                     caption_findings.append(re.sub(r"[^a-zA-Z0-9äöüÄÖÜß\_]", "", caption_word))
                     i += 1
 
@@ -421,12 +439,14 @@ def get_caption_pattern(caption, pattern, count = 1):
             if finding == "":
                 continue
 
-            if not caption_new:
-                caption_new = pattern + finding
-            else:
-                caption_new = caption_new + " " + pattern + finding
+            caption_new = pattern + finding
 
-    return caption_new
+            if returnAsArray:
+                result.append(caption_new)
+            else:
+                result = caption_new
+
+    return result
 
 def get_author(message):
     """Return author from message object"""
@@ -631,6 +651,79 @@ async def get_daily_winners(weekly=False):
             daily_winners.append(winner)
 
     return daily_winners
+
+async def get_poll_winners():
+    """get poll based winners"""
+    contest_time = build_strptime(config.CONTEST_DATE)
+    poll_winners = []
+
+    async for message in app.get_chat_history(config.CHAT_ID):
+        check = await check_message(message, excludes = False)
+        if not check:
+            continue
+
+        # check if message has a timestamp
+        if hasattr(message, "date"):
+            message_time = build_strptime(str(message.date))
+            message_difftime = contest_time - message_time
+        else:
+            continue
+
+        # check if message was in desired timeframe
+        if ( (message_difftime.days < config.CONTEST_DAYS)
+                and not message_difftime.days < 0 ):
+
+            if hasattr(message, "caption"):
+                if message.caption:
+
+                    # count pattern matches
+                    count = 0
+                    for pattern in config.CONTEST_POLL_PATTERN:
+                        if pattern in str(message.caption):
+                            count += 1
+
+                    # message caption must match all given patterns
+                    if count == len(config.CONTEST_POLL_PATTERN):
+                        # find all words starting with @ as author
+                        authors = get_caption_pattern(message.caption,
+                            "@",
+                            count = 5,
+                            returnAsArray = True
+                        )
+                        logging.info(message.caption)
+
+                        # create participants from authors
+                        i = 0
+                        for author in authors:
+                            author = author.replace("@","")
+                            poll_winner = create_participant(message, author)
+
+                            # update photo id in case of media group (draw)
+                            if len(authors) > 1 and hasattr(message, "media_group_id"):
+                                if message.media_group_id is not None:
+                                    media_group = await app.get_media_group(config.CHAT_ID, message.id)
+                                    if media_group and len(media_group) >= i:
+                                        if hasattr(media_group[i], "photo"):
+                                            poll_winner['photo_id'] = media_group[i].photo.file_id
+                                            poll_winner['unique_id'] = media_group[i].photo.file_unique_id
+
+                                            # find the postlink in message entities
+                                            entities = find_url_entities(message)
+                                            poll_winner['postlink'] = entities[i].url
+
+                                            i += 1
+
+                            poll_winners.append(poll_winner)
+
+        elif message_difftime.days < 0:
+            # message newer than expected or excluded, keep searching messages
+            continue
+
+        else:
+            # message too old from here, stop loop
+            break
+
+    return poll_winners
 
 def create_ranking(participants, unique_ranks = False, sort = True, caption = True):
     """Build the final ranking message"""
@@ -992,6 +1085,32 @@ async def find_open_poll():
 
     return poll_message
 
+def postlinks_from_caption(message, winners):
+    """Get postlinks from caption text"""
+    i = 1
+    postlinks = []
+    if not hasattr(message, "caption_entities"):
+        return postlinks
+
+    if not message.caption_entities:
+        return postlinks
+
+    for entity in message.caption_entities:
+        if entity.url:
+            for winner in winners:
+                if i <= config.CONTEST_MAX_RANKS and i == int(winner['text'][0]):
+                    if hasattr(entity, 'url'):
+                        postlink = {
+                            "url": entity.url,
+                            "name": winner
+                        }
+                        postlinks.append(postlink)
+                    else:
+                        logging.error("URL is missing in option (%s)", winner['text'][0])
+            i += 1
+
+    return postlinks
+
 async def evaluate_poll():
     """search for the last open poll and evaluate"""
     result = False
@@ -1035,7 +1154,11 @@ async def evaluate_poll():
                     option.text,
                     option.voter_count
             )
-            voting_winners.append(option)
+            voting_winner = { 
+                "text": option.text,
+                "count": option.voter_count
+            }
+            voting_winners.append(voting_winner)
 
     if not best_option:
         logging.warning("Was not able to find the best vote, quit!")
@@ -1062,17 +1185,7 @@ async def evaluate_poll():
         )
         return False
 
-    i = 1
-    postlinks = []
-    for entity in ranking_message.caption_entities:
-        if entity.url:
-            for winner in voting_winners:
-                if i <= config.CONTEST_MAX_RANKS and i == int(winner.text[0]):
-                    if hasattr(entity, 'url'):
-                        postlinks.append(entity.url)
-                    else:
-                        logging.error("URL is missing in option (%s)", winner.text[0])
-            i += 1
+    postlinks = postlinks_from_caption(ranking_message, voting_winners)
 
     media_group = []
     if len(postlinks) >= 1:
@@ -1084,10 +1197,16 @@ async def evaluate_poll():
 
         i = 0
         for postlink in postlinks:
-            message = await get_message_from_postlink(postlink)
+            message = await get_message_from_postlink(postlink['url'])
 
             message_author = get_author(message)
-            poll_winners.append("@" + message_author + config.RANKING_WINNER_SUFFIX)
+
+            if config.POST_LINK:
+                medal_text = f"[{config.RANKING_WINNER_SUFFIX}]({postlink['url']})"
+            else:
+                medal_text = config.RANKING_WINNER_SUFFIX
+
+            poll_winners.append("@" + message_author + medal_text)
 
             if i > 0:
                 photo_id = get_photo_id_from_msg(message)
@@ -1166,8 +1285,14 @@ async def evaluate_poll():
 
             if config.CONTEST_HIGHSCORE:
                 for winner in poll_winners:
-                    winner = winner.replace(config.RANKING_WINNER_SUFFIX, "")
-                    await update_highscore(winner)
+
+                    # remove medal from name
+                    if config.POST_LINK:
+                        winner_name = winner.split("[")[0]
+                    else:
+                        winner_name = winner.replace(config.RANKING_WINNER_SUFFIX, "")
+
+                    await update_highscore(winner_name)
 
             result = True
         else:
@@ -1180,7 +1305,10 @@ async def evaluate_poll():
 async def create_poll():
     """Create a poll to vote a winner from"""
     if config.CONTEST_DAYS > 7:
-        winners = await get_daily_winners(weekly=True)
+        if config.CONTEST_POLL_FROM_POLLS:
+            winners = await get_poll_winners()
+        else:
+            winners = await get_daily_winners(weekly=True)
     else:
         winners = await get_daily_winners()
 
@@ -1214,7 +1342,11 @@ async def create_poll():
         logging.info("Create numbered image %s from %s", rank, winner["postlink"])
 
         # get photo id
-        winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
+        if config.CONTEST_POLL_FROM_POLLS:
+            winner_photo_id = winner['photo_id']
+        else:
+            winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
+
         if winner_photo_id:
 
             media = await download_media(winner_photo_id)
@@ -1593,7 +1725,8 @@ def get_message_id_from_postlink(postlink):
     message_id = False
 
     if len(arrpostlink) >= 4:
-        message_id = int(arrpostlink[-1])
+        if arrpostlink[-1].isnumeric():
+            message_id = int(arrpostlink[-1])
     else:
         logging.error("Cant find message id from postlink: %s", postlink)
 

@@ -26,7 +26,7 @@ CONTEST_DAYS = monthrange(int(year), int(month))[1]
 CONTEST_MAX_RANKS = len(monthcalendar(int(year), int(month)))
 
 # Create a poll with numbered images from winners found
-# True or False
+# True or False (Default: False)
 CONTEST_POLL = True
 
 # Set color for numbered photos
@@ -38,6 +38,11 @@ CONTEST_POLL_HEADER = (
     "Die Wahl zum Meme des Monats\n"
     "vom {TEMPLATE_START_DATE} - {TEMPLATE_END_DATE} (24h Abstimmung)"
 )
+
+# Collect poll winners and not daily winners
+# True or False (Default: False)
+CONTEST_POLL_FROM_POLLS = True
+
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
@@ -62,11 +67,12 @@ FINAL_MESSAGE_FOOTER = (
 FINAL_MESSAGE_CHAT_ID = CHAT_ID
 
 # Collect all CSV data and write new overall CSV file
-# Set config to True or False
+# Set config to True or False (Default: False)
 PARTICIPANTS_FROM_CSV = True
 
 # link the ranked post
 # in final message on the result counter
+# True or False (Default: True)
 POST_LINK = True
 
 # Path to a CSV File or False
@@ -78,8 +84,10 @@ CSV_FILE = (
     + ".csv"
 )
 
-# Add winner photo in final message
-# True to add or False to disable the winner photo for final message
+# Add winner photo in final message (Default: True)
+# False: Disable the winner photo for final message
+# True: Find the photo automatically
+# "<Path>": A file on disk to post as photo
 POST_WINNER_PHOTO = False
 
 # Ranking based on memes not authors

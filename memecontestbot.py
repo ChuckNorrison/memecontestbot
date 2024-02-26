@@ -712,6 +712,10 @@ async def get_poll_winners():
                                             poll_winner['postlink'] = entities[i].url
 
                                             i += 1
+                            else:
+                                entities = find_url_entities(message)
+                                if len(entities) >= 1:
+                                    poll_winner['postlink'] = entities[0].url
 
                             poll_winners.append(poll_winner)
 

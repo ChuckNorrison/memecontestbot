@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.0"
+VERSION_NUMBER = "v1.6.1"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -713,6 +713,7 @@ async def get_poll_winners():
 
                                             i += 1
                             else:
+                                # regular winner, set postlink
                                 entities = find_url_entities(message)
                                 if len(entities) >= 1:
                                     poll_winner['postlink'] = entities[0].url
@@ -931,20 +932,21 @@ async def update_highscore(winner_name):
 
                 if line.lower().find(winner_name.lower()) > 0:
 
-                    check_winner = line.split(" ")
-                    if len(check_winner) >= 3:
-                        if winner_name.lower() == check_winner[2].lower():
-                            found_winner = True
-                            logging.info("Update highscore: %s (ranks: %d)",
-                                winner_name,
-                                count_ranks
-                            )
-                            line, highscore_lines[next_line], offset = update_highscore_line(
-                                line,
-                                highscore_lines[next_line],
-                                winner_name
-                            )
-                            add_entity_offset += offset
+                    words = line.split(" ")
+                    if len(words) >= 3:
+                        for word in words:
+                            if winner_name.lower() == word.lower():
+                                found_winner = True
+                                logging.info("Update highscore: %s (ranks: %d)",
+                                    winner_name,
+                                    count_ranks
+                                )
+                                line, highscore_lines[next_line], offset = update_highscore_line(
+                                    line,
+                                    highscore_lines[next_line],
+                                    winner_name
+                                )
+                                add_entity_offset += offset
 
         # remember the line and modifications in a new array
         new_highscore_lines.append(line)
@@ -1158,7 +1160,7 @@ async def evaluate_poll():
                     option.text,
                     option.voter_count
             )
-            voting_winner = { 
+            voting_winner = {
                 "text": option.text,
                 "count": option.voter_count
             }

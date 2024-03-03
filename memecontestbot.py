@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.1"
+VERSION_NUMBER = "v1.6.2"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -1061,7 +1061,8 @@ def update_highscore_medal_counter(line):
 ###########################
 
 async def find_open_poll():
-    """search for the last open poll"""
+    """search for the last open poll matches CONTEST_POLL_PATTERN"""
+    contest_time = build_strptime(config.CONTEST_DATE)
     poll_message = False
 
     async for message in app.get_chat_history(config.CHAT_ID):
@@ -1074,17 +1075,40 @@ async def find_open_poll():
                 # this was a forwarded poll, can not be evaluated
                 continue
 
-        # the first poll we find needs to be open to evaluate
-        if message.poll.is_closed:
-            logging.warning(
-                "Last poll found is already closed, "
-                "nothing to evaluate! (message id: %s)",
-                message.id
-            )
-        else:
-            poll_message = message
+        if hasattr(message.poll, 'is_closed'):
+            if message.poll.is_closed:
+                continue
 
-        break
+        # check if message has a timestamp
+        if hasattr(message, "date"):
+            message_time = build_strptime(str(message.date))
+            message_difftime = contest_time - message_time
+        else:
+            continue
+
+        # check if message was in desired timeframe
+        if ( (message_difftime.days < config.CONTEST_DAYS)
+                and not message_difftime.days < 0 ):
+
+            if hasattr(message.poll, 'question'):
+                # count pattern matches
+                count = 0
+                for pattern in config.CONTEST_POLL_PATTERN:
+                    if pattern in str(message.poll.question):
+                        count += 1
+
+                # message poll question must match all given patterns
+                if count == len(config.CONTEST_POLL_PATTERN):
+                    poll_message = message
+                    break
+
+        elif message_difftime.days < 0:
+            # message newer than expected or excluded, keep searching messages
+            continue
+
+        else:
+            # message too old from here, stop loop
+            break
 
     if not poll_message:
         logging.warning("No poll found, nothing to evaluate!")

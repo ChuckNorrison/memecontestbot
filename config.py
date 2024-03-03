@@ -40,6 +40,11 @@ CONTEST_POLL_RESULT = False
 # False for random colors or RGB, set as array [212, 175, 55]
 CONTEST_POLL_COLOR = [212, 175, 55]
 
+# Poll result mode: Pattern to find the last open poll to evaluate
+# Poll create mode: Pattern used with CONTEST_POLL_FROM_POLLS
+# to find recent poll results and create a new poll
+CONTEST_POLL_PATTERN = ["Meme of the week"]
+
 # Update the highscore message with winner
 # If not exist, create a message manually first
 # False or postlink (https://t.me/c/{chat_id}/{message_id})

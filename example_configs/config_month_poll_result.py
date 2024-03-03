@@ -37,6 +37,11 @@ CONTEST_POLL_RESULT = True
 # Append ranking into poll result message
 CONTEST_POLL_RESULT_RANKING = False
 
+# Poll result mode: Pattern to find the last open poll to evaluate
+# Poll create mode: Pattern used with CONTEST_POLL_FROM_POLLS
+# to find recent poll results and create a new poll
+CONTEST_POLL_PATTERN = ["Meme des Monats"]
+
 # Update the highscore message with winner
 # If not exist, create a message first
 # False or postlink (https://t.me/c/{chat_id}/{message_id})

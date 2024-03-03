@@ -43,6 +43,11 @@ CONTEST_POLL_HEADER = (
 # True or False (Default: False)
 CONTEST_POLL_FROM_POLLS = True
 
+# Poll result mode: Pattern to find the last open poll to evaluate
+# Poll create mode: Pattern used with CONTEST_POLL_FROM_POLLS
+# to find recent poll results and create a new poll
+CONTEST_POLL_PATTERN = ["Meme der Woche"]
+
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]

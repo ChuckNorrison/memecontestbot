@@ -685,9 +685,10 @@ async def get_poll_winners():
                     # message caption must match all given patterns
                     if count == len(config.CONTEST_POLL_PATTERN):
 
-                        if "#1" in message.caption:
+                        caption = message.caption
+                        if "#1" in caption:
                             # this is a poll result with ranking, do not evaluate
-                            caption = message.caption.split("#1")[0]
+                            caption = caption.split("#1")[0]
 
                         # find all words starting with @ as author
                         authors = get_caption_pattern(caption,
@@ -695,7 +696,7 @@ async def get_poll_winners():
                             count = 5,
                             returnAsArray = True
                         )
-                        logging.info(message.caption)
+                        logging.info(caption)
 
                         # create participants from authors
                         i = 0

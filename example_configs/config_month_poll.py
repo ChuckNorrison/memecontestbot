@@ -12,7 +12,7 @@ CHAT_ID = "memecontest"
 # only posts prior this date and time will get analyzed
 # Automatically set the last day of the last month as CONTEST_DATE
 CONTEST_DATE = datetime.now()
-#CONTEST_DATE = datetime.strptime("2024-02-15 11:59:59", "%Y-%m-%d %H:%M:%S")
+#CONTEST_DATE = datetime.strptime("2024-03-15 11:59:59", "%Y-%m-%d %H:%M:%S")
 
 year = CONTEST_DATE.year
 if CONTEST_DATE.month > 1:
@@ -33,21 +33,22 @@ CONTEST_DATE = ("%d-%d-%d %d:%d:%d" % (year, month, day, hour, minute, second))
 CONTEST_DAYS = day
 
 # amount of winners to honor in ranking message
-CONTEST_MAX_RANKS = len(monthcalendar(int(year), int(month)))
+CONTEST_MAX_RANKS = len(monthcalendar(year, month))
 
 # Create a poll with numbered images from winners found
-# True or False (Default: False)
+# True or False
 CONTEST_POLL = True
 
+# Header for poll message
+month = datetime.strptime(CONTEST_DATE, "%Y-%m-%d %H:%M:%S")
+month = month.strftime("%B")
+CONTEST_POLL_HEADER = (
+    "Die Wahl zum Meme des Monats\n"
+    f" {month} {year} (24h Abstimmung)"
+)
 # Set color for numbered photos
 # False for random colors or RGB, set as array [212, 175, 55]
 CONTEST_POLL_COLOR = [212, 175, 55]
-
-# Header for poll message
-CONTEST_POLL_HEADER = (
-    "Die Wahl zum Meme des Monats\n"
-    "vom {TEMPLATE_START_DATE} - {TEMPLATE_END_DATE} (24h Abstimmung)"
-)
 
 # Collect poll winners and not daily winners
 # True or False (Default: False)

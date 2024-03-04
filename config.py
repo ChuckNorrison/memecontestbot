@@ -120,5 +120,8 @@ RANK_MEMES = True
 # or set to False to disable this feature
 POST_PARTICIPANTS_CHAT_ID = False
 
+# Format date
+DATE_FORMATTING = "%d.%m.%Y"
+
 # END TWEAK CONFIG
 #########################

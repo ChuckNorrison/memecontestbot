@@ -64,7 +64,7 @@ EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 
 # text header to print on top of final messages
 month = datetime.strptime(last_date, "%Y-%m-%d %H:%M:%S")
-month = date.strftime("%B")
+month = month.strftime("%B")
 FINAL_MESSAGE_HEADER= (
     "Ihr habt mit {TEMPLATE_POLL_VOTES} Stimmen gewählt,\n"
     f"Das Meme des Monats vom {month} {year}\n"

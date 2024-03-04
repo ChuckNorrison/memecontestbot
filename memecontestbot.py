@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.2"
+VERSION_NUMBER = "v1.6.3"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -1370,7 +1370,7 @@ async def create_poll():
     rank = 1
     for winner in winners:
         winner_date = build_strptime(winner['date'])
-        winner_date_formatted = winner_date.strftime("%d.%m.%Y")
+        winner_date_formatted = winner_date.strftime(config.DATE_FORMATTING)
 
         if not "postlink" in winner:
             winner["postlink"] = build_postlink(winner)
@@ -1398,9 +1398,8 @@ async def create_poll():
 
             if rank == 1:
                 poll_end_date = winner_date_formatted
-                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
-                poll_start_date = poll_start_date.strftime("%d.%m.%Y")
-                logging.info("poll start date found: %s", poll_start_date)
+                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS-1)
+                poll_start_date = poll_start_date.strftime(config.DATE_FORMATTING)
 
                 media_group.append(InputMediaPhoto(image_path, final_message))
             else:
@@ -1413,6 +1412,8 @@ async def create_poll():
         rank += 1
         if rank > config.CONTEST_MAX_RANKS:
             break
+
+    logging.info("poll timeframe found: %s - %s", poll_start_date, poll_end_date)
 
     if config.FINAL_MESSAGE_CHAT_ID:
 
@@ -1811,9 +1812,9 @@ def build_timeframe(current_time, days):
     i = 0
     for date in reversed(date_list):
         if i == 0:
-            date_start = date.strftime("%d.%m")
+            date_start = date.strftime(config.DATE_FORMATTING.replace(".%y", ""))
         elif i == len(date_list)-2:
-            date_end = date.strftime("%d.%m.%Y")
+            date_end = date.strftime(config.DATE_FORMATTING)
         i += 1
 
     if date_start != "" and date_end != "":

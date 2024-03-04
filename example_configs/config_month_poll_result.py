@@ -10,20 +10,31 @@ from calendar import monthrange, monthcalendar
 CHAT_ID = "memecontest"
 
 # only posts prior this date and time will get analyzed
-#CONTEST_DATE = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-CONTEST_DATE = "2024-02-02 11:59:59" # example with fixed date and time
+# Automatically set the last day of the last month as CONTEST_DATE
+date = datetime.now()
+# date = datetime.strptime("2024-03-15 11:59:59", "%Y-%m-%d %H:%M:%S")
+CONTEST_DATE = date.strftime("%Y-%m-%d %H:%M:%S")
 
-# only posts newer than x days will be ranked.
-# 1 = 24h contest without duplicates,
-# 2+ days post with same author gets added
-year = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')
-# substract two days to retrieve the last month
-month = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S') - timedelta(days=2)
-month = month.strftime('%m')
-CONTEST_DAYS = monthrange(int(year), int(month))[1]
+year = date.year
+if date.month > 1:
+    month = date.month-1
+else:
+    month = 12
+    year = year-1
+
+day = monthrange(year, month)[1]
+hour = date.hour
+minute = date.minute
+second = date.second
+
+last_date = f"{year}-{month}-{day} {hour}:{minute}:{second}"
+
+# Days to analyze
+# Automatically set to last day of month with calender
+CONTEST_DAYS = day
 
 # amount of winners to honor in ranking message
-CONTEST_MAX_RANKS = len(monthcalendar(int(year), int(month)))
+CONTEST_MAX_RANKS = 12
 
 # Create a poll to vote from numbered images
 # True or False
@@ -52,15 +63,17 @@ CONTEST_HIGHSCORE = "https://t.me/memecontest/11"
 EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 
 # text header to print on top of final messages
+month = datetime.strptime(last_date, "%Y-%m-%d %H:%M:%S")
+month = date.strftime("%B")
 FINAL_MESSAGE_HEADER= (
     "Ihr habt mit {TEMPLATE_POLL_VOTES} Stimmen gewählt,\n"
-    "Das Meme des Monats vom {TEMPLATE_TIME}\n"
+    f"Das Meme des Monats vom {month} {year}\n"
     "geht an {TEMPLATE_POLL_WINNER}\n\n"
 )
 
 FINAL_MESSAGE_HEADER_DRAW = (
     "Gleichstand mit je {TEMPLATE_POLL_VOTES} Stimmen!\n"
-    "Das Meme der Woche vom {TEMPLATE_TIME}\n"
+    f"Das Meme des Monats vom {month} {year}\n"
     "geht an {TEMPLATE_POLL_WINNER} und {TEMPLATE_POLL_WINNER_SECOND}\n\n"
 )
 

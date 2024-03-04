@@ -10,17 +10,27 @@ from calendar import monthrange, monthcalendar
 CHAT_ID = "memecontest"
 
 # only posts prior this date and time will get analyzed
-#CONTEST_DATE = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-CONTEST_DATE = "2024-02-01 11:59:59" # example with fixed date and time
+# Automatically set the last day of the last month as CONTEST_DATE
+CONTEST_DATE = datetime.now()
+#CONTEST_DATE = datetime.strptime("2024-02-15 11:59:59", "%Y-%m-%d %H:%M:%S")
 
-# only posts newer than x days will be ranked.
-# 1 = 24h contest without duplicates,
-# 2+ days post with same author gets added
-year = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%Y')
-# substract one day to retrieve the last month
-month = datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S') - timedelta(days=1)
-month = month.strftime('%m')
-CONTEST_DAYS = monthrange(int(year), int(month))[1]
+year = CONTEST_DATE.year
+if CONTEST_DATE.month > 1:
+    month = CONTEST_DATE.month-1
+else:
+    month = 12
+    year = year-1
+
+day = monthrange(year, month)[1]
+hour = CONTEST_DATE.hour
+minute = CONTEST_DATE.minute
+second = CONTEST_DATE.second
+
+CONTEST_DATE = ("%d-%d-%d %d:%d:%d" % (year, month, day, hour, minute, second))
+
+# Days to analyze
+# Automatically set to last day of month with calender
+CONTEST_DAYS = day
 
 # amount of winners to honor in ranking message
 CONTEST_MAX_RANKS = len(monthcalendar(int(year), int(month)))

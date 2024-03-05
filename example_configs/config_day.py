@@ -25,6 +25,10 @@ CONTEST_MAX_RANKS = 10
 # False or postlink (https://t.me/c/{chat_id}/{message_id})
 CONTEST_HIGHSCORE = "https://t.me/memecontest/11"
 
+# Format the date
+# https://strftime.org/
+DATE_FORMATTING = "%b. %d, %Y"
+
 # posts we want to exclude from ranking.
 # Add your patterns to this array.
 EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
@@ -33,7 +37,7 @@ EXCLUDE_PATTERN = ["Meme Contest", "Rangliste"]
 # Template variables: {TEMPLATE_WINNER}, {TEMPLATE_VOTES}
 FINAL_MESSAGE_HEADER = (
     f"Tagessieger vom "
-    f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime('%d.%m.%Y')} "
+    f"{datetime.strptime(CONTEST_DATE, '%Y-%m-%d %H:%M:%S').strftime(DATE_FORMATTING)} "
     "von {TEMPLATE_WINNER} mit {TEMPLATE_VOTES} 🏆\n\n"
     f"Rangliste 24-Stunden "
 )

@@ -1814,9 +1814,19 @@ def search_date(search_string):
     result = False
 
     date_pattern = config.DATE_FORMATTING.replace("%", "\\")
+    # Day, Month, Year as int
     date_pattern = date_pattern.replace("d", "d+")
     date_pattern = date_pattern.replace("m", "d+")
     date_pattern = date_pattern.replace("Y", "d+")
+    # Month
+    date_pattern = date_pattern.replace("B", "[A-Za-z\\w]+")
+    date_pattern = date_pattern.replace("b", "[A-Za-z\\w]+")
+    # Weekday
+    date_pattern = date_pattern.replace("A", "[A-Za-z\\w]+")
+    date_pattern = date_pattern.replace("a", "[A-Za-z\\w]+")
+    date_pattern = date_pattern.replace("w", "d+")
+    # AM/PM
+    date_pattern = date_pattern.replace("p", "[APap][Mm]")
 
     match = re.search(r'('+ date_pattern + ')', search_string)
     if match:

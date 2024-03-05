@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.3"
+VERSION_NUMBER = "v1.6.4"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -1177,10 +1177,34 @@ async def evaluate_poll():
     voting_winners = []
 
     # find the best vote count
+    poll_time_start = ""
+    poll_time_end = ""
+
     for option in poll_message.options:
         if option.voter_count > best_vote_count:
             best_vote_count = option.voter_count
             best_option = option.text
+
+        # get poll dates from options
+        if poll_time_start == "":
+            poll_time_start = search_date(option.text)
+        else:
+            poll_time_start_new = search_date(option.text)
+            poll_time_start = min(poll_time_start, poll_time_start_new)
+
+        if poll_time_end == "":
+            poll_time_end = search_date(option.text)
+        else:
+            poll_time_end_new = search_date(option.text)
+            poll_time_end = max(poll_time_end, poll_time_end_new)
+
+    if poll_time_start and poll_time_end:
+        poll_time_start = poll_time_start.strftime(config.DATE_FORMATTING)
+        poll_time_end = poll_time_end.strftime(config.DATE_FORMATTING)
+    else:
+        logging.warning("Can not retrieve poll time from voting options")
+
+    poll_time = poll_time_start + " - " + poll_time_end
 
     # collect the winners
     for option in poll_message.options:
@@ -1226,8 +1250,6 @@ async def evaluate_poll():
     media_group = []
     if len(postlinks) >= 1:
         # create media group and collect winner names
-        contest_time = build_strptime(config.CONTEST_DATE)
-        poll_time = build_timeframe(contest_time-timedelta(days=1), config.CONTEST_DAYS+1)
         poll_winners = []
         first_photo_id = False
 
@@ -1398,7 +1420,7 @@ async def create_poll():
 
             if rank == 1:
                 poll_end_date = winner_date_formatted
-                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS-1)
+                poll_start_date = contest_time-timedelta(days=config.CONTEST_DAYS)
                 poll_start_date = poll_start_date.strftime(config.DATE_FORMATTING)
 
                 media_group.append(InputMediaPhoto(image_path, final_message))
@@ -1594,7 +1616,6 @@ def get_participants_from_csv(contest_days = config.CONTEST_DAYS):
     contest_time = build_strptime(config.CONTEST_DATE)
 
     with open(config.CSV_FILE, mode='r', encoding="utf-8") as csvfile_single:
-
         csv_dict = csv.DictReader(csvfile_single)
 
         i = 0
@@ -1788,6 +1809,21 @@ def build_strptime(time_string):
     """Return time as strptime object"""
     return datetime.strptime(time_string, "%Y-%m-%d %H:%M:%S")
 
+def search_date(search_string):
+    """Search for a date in search_string and return strptime"""
+    result = False
+
+    date_pattern = config.DATE_FORMATTING.replace("%", "\\")
+    date_pattern = date_pattern.replace("d", "d+")
+    date_pattern = date_pattern.replace("m", "d+")
+    date_pattern = date_pattern.replace("Y", "d+")
+
+    match = re.search(r'('+ date_pattern + ')', search_string)
+    if match:
+        result = datetime.strptime(match.group(1), config.DATE_FORMATTING)
+
+    return result
+
 def build_postlink(participant):
     """Builds link to given message"""
     participant_id = str(participant["id"])
@@ -1801,26 +1837,6 @@ def build_postlink(participant):
     postlink = baseurl + participant_chat_id + "/" + participant_id
 
     return postlink
-
-def build_timeframe(current_time, days):
-    """Calculate start and end date and return string"""
-    date_list = [current_time - timedelta(days=x) for x in range(days)]
-    date_start = ""
-    date_end = ""
-    date_message = ""
-
-    i = 0
-    for date in reversed(date_list):
-        if i == 0:
-            date_start = date.strftime(config.DATE_FORMATTING.replace(".%y", ""))
-        elif i == len(date_list)-2:
-            date_end = date.strftime(config.DATE_FORMATTING)
-        i += 1
-
-    if date_start != "" and date_end != "":
-        date_message = f"{date_start} - {date_end}"
-
-    return date_message
 
 def get_chunks(wrapstring, maxlength, pattern = "#"):
     """return wrapped string as yield"""

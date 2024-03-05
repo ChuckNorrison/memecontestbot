@@ -1813,18 +1813,18 @@ def search_date(search_string):
     """Search for a date in search_string and return strptime"""
     result = False
 
-    date_pattern = config.DATE_FORMATTING.replace("%", "\\")
+    date_pattern = config.DATE_FORMATTING
     # Day, Month, Year as int
-    date_pattern = date_pattern.replace("d", "d+")
-    date_pattern = date_pattern.replace("m", "d+")
-    date_pattern = date_pattern.replace("Y", "d+")
-    # Month
-    date_pattern = date_pattern.replace("B", "[A-Za-z\\w]+")
-    date_pattern = date_pattern.replace("b", "[A-Za-z\\w]+")
+    date_pattern = date_pattern.replace("%d", "\\d+")
+    date_pattern = date_pattern.replace("%m", "\\d+")
+    date_pattern = date_pattern.replace("%Y", "\\d+")
     # Weekday
-    date_pattern = date_pattern.replace("A", "[A-Za-z\\w]+")
-    date_pattern = date_pattern.replace("a", "[A-Za-z\\w]+")
-    date_pattern = date_pattern.replace("w", "d+")
+    date_pattern = date_pattern.replace("%A", "[A-Za-z\\s]+")
+    date_pattern = date_pattern.replace("%a", "[A-Za-z\\s]+")
+    date_pattern = date_pattern.replace("%w", "\\d+")
+    # Month
+    date_pattern = date_pattern.replace("%B", "[A-Za-z\\s]+")
+    date_pattern = date_pattern.replace("%b", "[A-Za-z\\s]+")
     # AM/PM
     date_pattern = date_pattern.replace("p", "[APap][Mm]")
 

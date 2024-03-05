@@ -120,7 +120,7 @@ def load_config():
     config.RANKING_WINNER_SUFFIX        = getattr(config, 'RANKING_WINNER_SUFFIX', "🏅")
     config.PARTICIPANTS_LIST            = getattr(config, 'PARTICIPANTS_LIST', False)
     config.PARTICIPANT_DUPLICATES       = getattr(config, 'PARTICIPANT_DUPLICATES', False)
-    config.DATE_FORMATTING              = getattr(config, 'DATE_FORMATTING', "%Y-%m-%d")
+    config.DATE_FORMATTING              = getattr(config, 'DATE_FORMATTING', "%d/%m/%Y")
 
     return config
 

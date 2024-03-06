@@ -687,7 +687,9 @@ async def get_poll_winners():
 
                         caption = message.caption
                         if "#1" in caption:
+                            logging.error("TODO: CONTEST_POLL_FROM_POLLS + CONTEST_POLL_RESULT not working yet together.")
                             # this is a poll result with ranking, do not evaluate
+                            # there is a TEMPLATE_WINNER in config, this counts as poll winner
                             caption = caption.split("#1")[0]
 
                         # find all words starting with @ as author
@@ -1334,8 +1336,13 @@ async def evaluate_poll():
         if first_photo_id:
             media_group.append(InputMediaPhoto(first_photo_id, final_message))
             if len(media_group) > 1:
-                await app.send_media_group(config.FINAL_MESSAGE_CHAT_ID, media_group,
-                    reply_to_message_id=poll_reply_message_id)
+                if len(media_group) <= 10:
+                    await app.send_media_group(config.FINAL_MESSAGE_CHAT_ID, media_group,
+                        reply_to_message_id=poll_reply_message_id)
+                else:
+                    logging.error("Telegram Limit reached, media %d/10", len(media_group))
+                    logging.error("TODO: Split message automatically")
+                    sys.exit(1)
             else:
                 await app.send_photo(config.FINAL_MESSAGE_CHAT_ID, first_photo_id,
                     final_message, parse_mode=enums.ParseMode.MARKDOWN,
@@ -1438,11 +1445,15 @@ async def create_poll():
     logging.info("poll timeframe found: %s - %s", poll_start_date, poll_end_date)
 
     if config.FINAL_MESSAGE_CHAT_ID:
-
-        media_group_message = await app.send_media_group(
-            config.FINAL_MESSAGE_CHAT_ID,
-            media_group
-        )
+        if len(media_group) <= 10:
+            media_group_message = await app.send_media_group(
+                config.FINAL_MESSAGE_CHAT_ID,
+                media_group
+            )
+        else:
+            logging.error("Telegram Limit reached, media %d/10", len(media_group))
+            logging.error("TODO: Split message automatically")
+            sys.exit(1)
 
         # create question message
         poll_message_header = config.CONTEST_POLL_HEADER

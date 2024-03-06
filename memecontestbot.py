@@ -717,7 +717,10 @@ async def get_poll_winners():
 
                                             # find the postlink in message entities
                                             entities = find_url_entities(message)
-                                            poll_winner['postlink'] = entities[i].url
+                                            if (len(entities)-1) >= i:
+                                                poll_winner['postlink'] = entities[i].url
+                                            else:
+                                                logging.warning("Postlink is missing in entities")
 
                                             i += 1
                             else:

@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.4"
+VERSION_NUMBER = "v1.6.5"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -706,23 +706,21 @@ async def get_poll_winners():
                             author = author.replace("@","")
                             poll_winner = create_participant(message, author)
 
-                            # update photo id in case of media group (draw)
+                            # update postlink in case of media group (draw)
                             if len(authors) > 1 and hasattr(message, "media_group_id"):
                                 if message.media_group_id is not None:
-                                    media_group = await app.get_media_group(config.CHAT_ID, message.id)
-                                    if media_group and len(media_group) >= i:
-                                        if hasattr(media_group[i], "photo"):
-                                            poll_winner['photo_id'] = media_group[i].photo.file_id
-                                            poll_winner['unique_id'] = media_group[i].photo.file_unique_id
+                                    # find the postlink in message entities
+                                    entities = find_url_entities(message)
 
-                                            # find the postlink in message entities
-                                            entities = find_url_entities(message)
-                                            if (len(entities)-1) >= i:
-                                                poll_winner['postlink'] = entities[i].url
-                                            else:
-                                                logging.warning("Postlink is missing in entities")
+                                    if (len(entities)-1) >= i:
+                                        poll_winner['postlink'] = entities[i].url
+                                        logging.info("Update %s postlink %d: %s",
+                                            author, i, poll_winner['postlink']
+                                        )
+                                    else:
+                                        logging.warning("Postlink was missing in entities")
 
-                                            i += 1
+                                    i += 1
                             else:
                                 # regular winner, set postlink
                                 entities = find_url_entities(message)
@@ -1410,11 +1408,7 @@ async def create_poll():
         logging.info("Create numbered image %s from %s", rank, winner["postlink"])
 
         # get photo id
-        if config.CONTEST_POLL_FROM_POLLS:
-            winner_photo_id = winner['photo_id']
-        else:
-            winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
-
+        winner_photo_id = await get_photo_id_from_postlink(winner["postlink"])
         if winner_photo_id:
 
             media = await download_media(winner_photo_id)

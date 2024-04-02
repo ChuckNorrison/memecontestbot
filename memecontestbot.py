@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.5"
+VERSION_NUMBER = "v1.6.6"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -1628,6 +1628,10 @@ def get_participants_from_csv(contest_days = config.CONTEST_DAYS):
 
         i = 0
         for row in csv_dict:
+
+            if not "Timestamp" in row:
+                continue
+
             i += 1
             # check if row was in desired timeframe
             row_time = build_strptime(str(row['Timestamp']))
@@ -1660,7 +1664,11 @@ def get_participants_from_csv(contest_days = config.CONTEST_DAYS):
                     csv_participant = create_participant_from_csv(row)
                     csv_participants.append(csv_participant)
 
-        logging.info("Read %d rows from %s", i, config.CSV_FILE)
+        if i > 0:
+            logging.info("Read %d rows from %s", i, config.CSV_FILE)
+        else:
+            logging.error("Can not find CSV Data in %s", config.CSV_FILE)
+            sys.exit()
 
     return csv_participants
 

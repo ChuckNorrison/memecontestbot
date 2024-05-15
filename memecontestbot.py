@@ -141,7 +141,6 @@ async def start_collector(participants):
         message_hashtag = get_caption_pattern(participant['caption'], "#")
         if message_hashtag:
             participant['caption'] = participant['author'] + "\n\n" + message_hashtag
-            await update_hashtaglist(message_hashtag)
         else:
             participant['caption'] = participant['author']
 
@@ -415,15 +414,15 @@ def check_participant_duplicates(participants, message, message_author):
 
     return participants, duplicate
 
-def get_caption_pattern(caption, pattern, count = 1, returnAsArray = False):
+def get_caption_pattern(caption, pattern, count = 1, return_as_array = False):
     """
     Return findings from message caption as string
     Set count to limit the resulting findings
-    Set returnAsArray, to return as array instead of string
+    Set return_as_array, to return as array instead of string
     """
     caption_findings = []
     caption_new = False
-    if returnAsArray:
+    if return_as_array:
         result = []
     else:
         result = False
@@ -445,7 +444,7 @@ def get_caption_pattern(caption, pattern, count = 1, returnAsArray = False):
 
             caption_new = pattern + finding
 
-            if returnAsArray:
+            if return_as_array:
                 result.append(caption_new)
             else:
                 result = caption_new
@@ -691,7 +690,9 @@ async def get_poll_winners():
 
                         caption = message.caption
                         if "#1" in caption:
-                            logging.error("TODO: CONTEST_POLL_FROM_POLLS + CONTEST_POLL_RESULT not working yet together.")
+                            logging.error("TODO: "
+                                "CONTEST_POLL_FROM_POLLS + CONTEST_POLL_RESULT "
+                                "not working yet together.")
                             # this is a poll result with ranking, do not evaluate
                             # there is a TEMPLATE_WINNER in config, this counts as poll winner
                             caption = caption.split("#1")[0]
@@ -700,7 +701,7 @@ async def get_poll_winners():
                         authors = get_caption_pattern(caption,
                             "@",
                             count = 5,
-                            returnAsArray = True
+                            return_as_array = True
                         )
                         logging.info(caption)
 
@@ -1120,13 +1121,14 @@ async def create_hashtaglist():
 
         else:
             # message too old from here, stop loop
-            break                
+            break
 
     # create a dict from hashtags and count
     hashtaglist = {i:hashtags.count(i) for i in hashtags}
 
     # sort the hashtags dict
-    hashtaglist = {key: val for key, val in sorted(hashtaglist.items(), key = lambda ele: ele[1], reverse = True)}
+    hashtaglist = dict(sorted(hashtaglist.items(),
+        key = lambda ele: ele[1], reverse = True))
 
     # create the message
     hashtagmsg = config.FINAL_MESSAGE_HEADER + "\n"
@@ -1531,6 +1533,7 @@ async def create_poll():
     logging.info("poll timeframe found: %s - %s", poll_start_date, poll_end_date)
 
     if config.FINAL_MESSAGE_CHAT_ID:
+        media_group_message = ""
         if len(media_group) <= 10:
             media_group_message = await app.send_media_group(
                 config.FINAL_MESSAGE_CHAT_ID,

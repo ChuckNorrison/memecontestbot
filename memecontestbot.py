@@ -4,8 +4,8 @@
 media reactions or views and create a ranking message.
 - Create configs for daily, weekly and monthly rankings
 or polls to vote from.
-- Collect and repost media in another Chat.
-- Update a highscore message with winners automatically.
+- Collect and repost media in another chat.
+- Update a highscore message with winner medals.
 
 Usage:
 Create or edit the config file and start.
@@ -61,6 +61,9 @@ async def main():
         final_message, winner = create_ranking(participants)
 
     async with app:
+        if config.CONTEST_HASHTAGLIST:
+            await create_hashtaglist()
+            sys.exit()
 
         if config.PARTICIPANTS_LIST:
             if config.FINAL_MESSAGE_CHAT_ID:
@@ -138,6 +141,7 @@ async def start_collector(participants):
         message_hashtag = get_caption_pattern(participant['caption'], "#")
         if message_hashtag:
             participant['caption'] = participant['author'] + "\n\n" + message_hashtag
+            await update_hashtaglist(message_hashtag)
         else:
             participant['caption'] = participant['author']
 
@@ -998,7 +1002,16 @@ async def update_highscore(winner_name):
                         chat_id, message_id, new_highscore, entities = entities
                 )
             except MessageNotModified as ex_modified:
-                logging.warning(ex_modified)
+                logging.error(ex_modified)
+                # logging.warning("TODO: Test retry edit message")
+                # if hasattr(ex_modified, "count"):
+                #     logging.warning("Wait %d seconds to send more photos...", ex_modified.count)
+                #     await asyncio.sleep(ex_modified.count + 1)
+                #     await app.edit_message_text(
+                #             chat_id, message_id, new_highscore, entities = entities
+                #     )
+                # else:
+                #     logging.error("Edit message failed!")
         else:
             logging.error("Update highscore: failed, "
                 "chat id and/or message id was not found in %s",
@@ -1064,6 +1077,82 @@ def update_highscore_medal_counter(line):
         logging.info("Update highscore: %s -> %s", search_string, replace_string)
 
     return line
+
+###########################
+# Hashtag methods
+###########################
+
+async def create_hashtaglist():
+    """Update the hashtag list message"""
+    contest_time = build_strptime(config.CONTEST_DATE)
+    hashtags = []
+
+    # collect hashtags
+    async for message in app.get_chat_history(config.CHAT_ID):
+
+        check = await check_message(message)
+        if not check:
+            continue
+
+        # check for valid author in message
+        message_author = get_author(message)
+        if not message_author:
+            continue
+
+        # check if message has a timestamp
+        if hasattr(message, "date"):
+            message_time = build_strptime(str(message.date))
+            message_difftime = contest_time - message_time
+        else:
+            continue
+
+        # check if message was in desired timeframe
+        if ( (message_difftime.days < config.CONTEST_DAYS)
+                and not message_difftime.days < 0 ):
+
+            message_hashtag = get_caption_pattern(message.caption, "#")
+            if message_hashtag:
+                hashtags.append(message_hashtag)
+
+        elif message_difftime.days < 0:
+            # message newer than expected or excluded, keep searching messages
+            continue
+
+        else:
+            # message too old from here, stop loop
+            break                
+
+    # create a dict from hashtags and count
+    hashtaglist = {i:hashtags.count(i) for i in hashtags}
+
+    # sort the hashtags dict
+    hashtaglist = {key: val for key, val in sorted(hashtaglist.items(), key = lambda ele: ele[1], reverse = True)}
+
+    # create the message
+    hashtagmsg = config.FINAL_MESSAGE_HEADER + "\n"
+    cnt = 0
+    for hashtag in hashtaglist:
+        if hashtaglist[hashtag] > 1:
+            hashtagmsg += hashtag + " (" + str(hashtaglist[hashtag]) + ")\n"
+            cnt += 1
+
+    hashtagmsg += "\n" + config.FINAL_MESSAGE_FOOTER
+
+    print(hashtagmsg)
+
+    if config.FINAL_MESSAGE_CHAT_ID and cnt > 2:
+
+        custom_photo = os.path.isfile(str(config.POST_WINNER_PHOTO))
+
+        if custom_photo:
+            await send_photo_caption(
+                config.FINAL_MESSAGE_CHAT_ID,
+                config.POST_WINNER_PHOTO,
+                hashtagmsg
+            )
+        else:
+            await app.send_message(config.FINAL_MESSAGE_CHAT_ID, hashtagmsg,
+                parse_mode=enums.ParseMode.MARKDOWN)
 
 ###########################
 # Poll mode methods

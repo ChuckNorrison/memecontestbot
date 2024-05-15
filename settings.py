@@ -121,6 +121,7 @@ def load_config():
     config.PARTICIPANTS_LIST            = getattr(config, 'PARTICIPANTS_LIST', False)
     config.PARTICIPANT_DUPLICATES       = getattr(config, 'PARTICIPANT_DUPLICATES', False)
     config.DATE_FORMATTING              = getattr(config, 'DATE_FORMATTING', "%d/%m/%Y")
+    config.CONTEST_HASHTAGLIST          = getattr(config, 'CONTEST_HASHTAGLIST', False)
 
     return config
 

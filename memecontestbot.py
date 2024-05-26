@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.6"
+VERSION_NUMBER = "v1.6.7"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -1142,7 +1142,7 @@ async def create_hashtaglist():
 
     print(hashtagmsg)
 
-    if config.FINAL_MESSAGE_CHAT_ID and cnt > 2:
+    if config.FINAL_MESSAGE_CHAT_ID and cnt >= 1:
 
         custom_photo = os.path.isfile(str(config.POST_WINNER_PHOTO))
 

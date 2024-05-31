@@ -37,7 +37,7 @@ from PIL import Image, ImageDraw, ImageFont
 # own modules
 import settings
 
-VERSION_NUMBER = "v1.6.7"
+VERSION_NUMBER = "v1.6.8"
 
 config = settings.load_config()
 api = settings.load_api()
@@ -49,6 +49,8 @@ async def main():
     contest_time = build_strptime(config.CONTEST_DATE)
     formatted_date = contest_time.strftime("%d.%m.%Y %H:%M")
     logging.info("Start meme contest bot version '%s' at %s", VERSION_NUMBER, formatted_date)
+    winner = {}
+    final_message = ""
 
     if config.PARTICIPANTS_LIST:
         # inactivities Mode: create a message of inactive participants
@@ -234,6 +236,7 @@ async def get_participants(contest_days = config.CONTEST_DAYS):
     """read chat history and return participants"""
     contest_time = build_strptime(config.CONTEST_DATE)
     participants = []
+    duplicate = False
 
     async for message in app.get_chat_history(config.CHAT_ID):
 
@@ -387,8 +390,7 @@ def check_participant_duplicates(participants, message, message_author):
                 post_count = participant["count"]
 
                 # remember the best meme of current participant
-                if post_count > highest_count:
-                    highest_count = post_count
+                highest_count = max(highest_count, post_count)
 
                 if highest_count < message_reactions:
                     # replace existent meme data with best meme data
@@ -431,7 +433,7 @@ def get_caption_pattern(caption, pattern, count = 1, return_as_array = False):
         message_caption_array = caption.split()
         i = 1
         for caption_word in message_caption_array:
-            if ( caption_word.startswith(pattern) 
+            if ( caption_word.startswith(pattern)
                     and len(pattern) >= 4 and len(pattern) <= 32 ):
                 if count >= i:
                     # make sure nobody can inject commands here
@@ -891,6 +893,7 @@ async def update_highscore(winner_name):
     message = await get_message_from_postlink(config.CONTEST_HIGHSCORE)
     entities = find_url_entities(message)
     add_entity_offset = 0
+    highscore = False
 
     if not message:
         logging.error("Update highscore: failed, "

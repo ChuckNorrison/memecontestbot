@@ -434,7 +434,7 @@ def get_caption_pattern(caption, pattern, count = 1, return_as_array = False):
         i = 1
         for caption_word in message_caption_array:
             if ( caption_word.startswith(pattern)
-                    and len(pattern) >= 4 and len(pattern) <= 32 ):
+                    and len(caption_word) >= 4 and len(caption_word) <= 32 ):
                 if count >= i:
                     # make sure nobody can inject commands here
                     caption_findings.append(re.sub(r"[^a-zA-Z0-9äöüÄÖÜß\_]", "", caption_word))

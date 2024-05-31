@@ -431,7 +431,8 @@ def get_caption_pattern(caption, pattern, count = 1, return_as_array = False):
         message_caption_array = caption.split()
         i = 1
         for caption_word in message_caption_array:
-            if caption_word.startswith(pattern):
+            if ( caption_word.startswith(pattern) 
+                    and len(pattern) >= 4 and len(pattern) <= 32 ):
                 if count >= i:
                     # make sure nobody can inject commands here
                     caption_findings.append(re.sub(r"[^a-zA-Z0-9äöüÄÖÜß\_]", "", caption_word))
@@ -1084,7 +1085,7 @@ def update_highscore_medal_counter(line):
 ###########################
 
 async def create_hashtaglist():
-    """Update the hashtag list message"""
+    """Create the hashtag list message"""
     contest_time = build_strptime(config.CONTEST_DATE)
     hashtags = []
 
